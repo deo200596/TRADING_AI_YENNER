@@ -22,41 +22,44 @@ TICKERS = [
     "SMGR.JK", "INDF.JK", "ICBP.JK", "CPIN.JK", "MEDC.JK", "HRUM.JK"
 ]
 # ==============================================================================
-# 2. MESIN DATA INDIVIDUAL TANGGUH (KEMBALI KE METODE SESI 5 YANG STABIL)
+# 2. ENGINE DATA REAL-TIME TANGGUH (RESTORASI AKURASI SESI 5)
 # ==============================================================================
-@st.cache_data(ttl=60)
-def fetch_individual_market_data(ticker_list):
+@st.cache_data(ttl=5) # Cache dipangkas menjadi 5 detik untuk memaksa pembaruan harga live hulu BEI
+def fetch_realtime_market_data(ticker_list):
     """
-    Menggunakan pendekatan Sesi 5: Mendownload data per emiten secara mandiri.
-    Jika satu emiten diblokir atau gagal, emiten lain tidak akan ikut rusak.
+    KEMBALI KE STRUKTUR SESI 5: Menarik data interval menit untuk fluktuasi live 
+    dan data harian sekaligus secara individual untuk mendapatkan pembanding harga kemarin.
     """
     data_dict = {}
     for ticker in ticker_list:
         try:
-            # Menarik data 5 hari ke belakang untuk perhitungan Fair Value historis harian
-            df_ticker = yf.download(ticker, period="5d", interval="1d", progress=False)
+            # 1. Tarik data intraday menit berjalan (Akurasi Real-time Detik Ini)
+            df_live = yf.download(ticker, period="1d", interval="1m", progress=False)
+            # 2. Tarik data harian untuk mendapatkan harga penutupan kemarin sebagai baseline
+            df_daily = yf.download(ticker, period="5d", interval="1d", progress=False)
             
-            if not df_ticker.empty and len(df_ticker) >= 2:
-                # Menjinakkan struktur MultiIndex jika yfinance mengembalikannya secara sepihak
-                if isinstance(df_ticker.columns, pd.MultiIndex):
-                    if ticker in df_ticker.columns.levels:
-                        df_clean = df_ticker[ticker].dropna()
-                    else:
-                        df_clean = df_ticker.copy().dropna()
+            if not df_live.empty and not df_daily.empty:
+                # Meratakan MultiIndex jika terdeteksi dari fungsi yfinance terbaru
+                if isinstance(df_live.columns, pd.MultiIndex):
+                    df_live_clean = df_live[ticker].dropna() if ticker in df_live.columns.levels else df_live.copy().dropna()
+                    df_daily_clean = df_daily[ticker].dropna() if ticker in df_daily.columns.levels else df_daily.copy().dropna()
                 else:
-                    df_clean = df_ticker.dropna()
+                    df_live_clean = df_live.dropna()
+                    df_daily_clean = df_daily.dropna()
                 
-                if len(df_clean) >= 2:
-                    data_dict[ticker] = df_clean
+                if len(df_live_clean) >= 1 and len(df_daily_clean) >= 2:
+                    data_dict[ticker] = {
+                        "live": df_live_clean,
+                        "daily": df_daily_clean
+                    }
         except Exception:
-            # Sesi 5 Guardrail: Lewati emiten yang bermasalah, pertahankan yang berhasil
             continue
             
-    gc.collect() # Manajemen RAM 4GB Streamlit Cloud tetap aktif
+    gc.collect() # Proteksi memori RAM 4GB Streamlit Cloud
     return data_dict
 
 def send_telegram_alert(message):
-    """Fungsi pengirim laporan sinyal langsung ke Telegram API."""
+    """Fungsi transmisi pesan langsung ke Telegram API."""
     url = f"https://telegram.org{TOKEN_TELEGRAM}/sendMessage"
     payload = {
         "chat_id": CHAT_ID_TELEGRAM,
@@ -69,25 +72,32 @@ def send_telegram_alert(message):
     except Exception as e:
         return 500, str(e)
 # ==============================================================================
-# 3. CORE METRICS LOGIC: INDEKS INDIVIDUAL 100 & FLUKTUASI REAL-TIME
+# 3. CORE METRICS LOGIC: FLUKTUASI REAL-TIME & INDEKS WAJAR SKALA 100
 # ==============================================================================
-def process_ticker_metrics(ticker, df_ticker):
-    """Memproses metrik finansial secara akurat dari data yang berhasil diunduh."""
+def process_realtime_metrics(ticker, ticker_data):
+    """Memproses gabungan data intraday menit dan harian secara fluktuatif tanpa lag."""
     try:
-        today = df_ticker.iloc[-1]
-        yesterday = df_ticker.iloc[-2]
+        df_live = ticker_data["live"]
+        df_daily = ticker_data["daily"]
         
-        close_val = float(today['Close'])
-        high_val = float(today['High'])
-        low_val = float(today['Low'])
-        open_val = float(today['Open'])
-        volume_val = float(today['Volume'])
-        prev_close = float(yesterday['Close'])
+        # Ambil tick harga menit terakhir berjalan (Harga Saat Ini)
+        current_tick = df_live.iloc[-1]
+        # Ambil baris penutupan hari kemarin
+        yesterday_row = df_daily.iloc[-2]
         
-        # 1. KOLOM SELISIH FLUKTUATIF (Harga Penutupan Real-Time vs Kemarin)
+        close_val = float(current_tick['Close'])
+        high_val = float(current_tick['High'])
+        low_val = float(current_tick['Low'])
+        open_val = float(current_tick['Open'])
+        volume_val = float(df_live['Volume'].sum()) # Total volume akumulasi menit hari ini
+        
+        # Ambil baseline harga penutupan kemarin secara akurat
+        prev_close = float(yesterday_row['Close'])
+        
+        # 1. KOLOM SELISIH FLUKTUATIF REAL-TIME: (Harga Detik Ini - Harga Penutupan Kemarin)
         selisih_harga = close_val - prev_close
         
-        # Formula Proksi Volume Presisi Tinggi (Tick-Volume Proxy Sesi 6)
+        # Formula Proksi Volume Presisi Tinggi Sesi 6
         range_width = high_val - low_val
         price_position = (close_val - low_val) / range_width if range_width > 0 else 0.5
         close_vs_open = 0.6 if close_val > open_val else (0.4 if close_val < open_val else 0.5)
@@ -96,15 +106,15 @@ def process_ticker_metrics(ticker, df_ticker):
         sell_volume = volume_val * (1.0 - buy_fraction)
         selisih_volume = buy_volume - sell_volume
         
-        # 2. KOLOM FREKUENSI PROKSI
+        # 2. KOLOM FREKUENSI PROKSI MARKET REAL-TIME
         np.random.seed(int(close_val) % 1000 + 1)
         estimated_frequency = int(volume_val / np.random.randint(15, 30)) if volume_val > 0 else 0
         
-        # 3. KOLOM INDEX INDIVIDUAL (NILAI 100 = TEPAT PADA HARGA WAJAR HISTORIS)
-        historical_mean = df_ticker['Close'].mean()
+        # 3. KOLOM INDEX INDIVIDUAL (NILAI 100 = TEPAT PADA HARGA WAJAR HISTORIS 5 HARI)
+        historical_mean = df_daily['Close'].mean()
         indeks_individual = (close_val / historical_mean) * 100 if historical_mean > 0 else 100.0
 
-        # Algoritma Penentuan Sinyal & Win-Rate Ledger (TP/CL 3% - 4%)
+        # Algoritma Sinyal & Win-Rate Ledger Otomatis (TP/CL 3% - 4%)
         signal = "▬"
         tp_price = close_val * 1.03
         cl_price = close_val * 0.96
@@ -134,19 +144,19 @@ def process_ticker_metrics(ticker, df_ticker):
     except Exception:
         return None
 # ==============================================================================
-# 4. ENGINE VIEW UI & TRANSMITTER MANAGEMENT
+# 4. DASHBOARD INTERAKTIF & ENGINE BROADCASTER TELEGRAM
 # ==============================================================================
 st.title("📈 AI TRADING SYSTEM - INDONESIA STOCK EXCHANGE")
-st.subheader("Sesi 6 Master: Restorasi Stabilitas Arsitektur Individual Sesi 5")
+st.subheader("Sesi 6 Master: Pemulihan Total Jalur Data Intraday Real-Time Sesi 5")
 
-# Proses data hulu menggunakan perlindungan Sesi 5 (Satu per Satu)
-with st.spinner("Memindai Data Emiten BEI via Jalur Aman Sesi 5..."):
-    dict_raw_data = fetch_individual_market_data(TICKERS)
+# Eksekusi pemindaian aman hulu per emiten berbasis menit
+with st.spinner("Menarik Data Intraday Real-Time Seluruh Emiten BEI..."):
+    dict_raw_data = fetch_realtime_market_data(TICKERS)
 
 processed_rows = []
 for ticker in TICKERS:
     if ticker in dict_raw_data:
-        metrics = process_ticker_metrics(ticker, dict_raw_data[ticker])
+        metrics = process_realtime_metrics(ticker, dict_raw_data[ticker])
         if metrics is not None:
             processed_rows.append(metrics)
 
@@ -176,37 +186,37 @@ if processed_rows:
     if st.button("🔄 Reset Tampilan & Lihat Semua Emiten Terlikuid", type="secondary"):
         st.session_state.filter_mode = "ALL"
 
-    # --- TRANSMITTER TELEGRAM ---
+    # --- TRANSMITTER TELEGRAM VIA REALTIME DATA ---
     st.markdown("---")
     if st.button("🚀 PANCARKAN SINYAL AKTIF HARI INI KE TELEGRAM", type="primary", use_container_width=True):
         emiten_sinyal = df_master[df_master['Sinyal'] != "▬"]
         if not emiten_sinyal.empty:
             pesan_induk = "🔔 *AI TRADING REPORT - SESI 6 MASTER*\n\n"
             for _, row in emiten_sinyal.iterrows():
-                pesan_induk += f"• *{row['Emiten']}* | {row['Sinyal']} | Harga: {row['Harga']} | Indeks Individual: {row['Index Individual']}\n"
+                pesan_induk += f"• *{row['Emiten']}* | {row['Sinyal']} | Harga: {row['Harga']} | Selisih: {row['Selisih']} | Indeks: {row['Index Individual']}\n"
             
             status_code, json_response = send_telegram_alert(pesan_induk)
             if status_code == 200:
                 st.success("✅ Sinyal aktif sukses dipancarkan ke aplikasi Telegram Anda!")
             else:
-                st.error(f"❌ Telegram API Error {status_code}! Periksa kembali Chat ID Akun Anda.")
+                st.error(f"❌ Telegram API Error {status_code}! Periksa kembali konfigurasi Chat ID.")
                 st.json(json_response)
         else:
-            st.warning("Tidak ada emiten bersinyal aktif (▲/▼) saat ini untuk dikirim.")
+            st.warning("Tidak ada emiten bersinyal aktif (▲/▼) detik ini untuk dikirim.")
 
-    # Saringan Tampilan UI Sesuai State Tombol yang Diklik
+    # Aplikasi Logika Saringan Tampilan UI Berbasis Tombol yang Di-klik
     df_filtered = df_master.copy()
     if st.session_state.filter_mode == "SINYAL":
         df_filtered = df_master[df_master['Sinyal'] != "▬"]
-        st.info("Menampilkan Emiten yang Berhasil Merilis Sinyal Eksekusi Hari Ini.")
+        st.info("Menampilkan Emiten yang Berhasil Merilis Sinyal Eksekusi.")
     elif st.session_state.filter_mode == "TP":
         df_filtered = df_master[df_master['Ledger_Status'] == "TARGET PROFIT"]
-        st.success("Menampilkan Emiten yang Berhasil Menyentuh Batas Target Profit (TP).")
+        st.success("Menampilkan Emiten Sukses Target Profit.")
     elif st.session_state.filter_mode == "CL":
         df_filtered = df_master[df_master['Ledger_Status'] == "CUT LOSS"]
-        st.warning("Menampilkan Emiten yang Berada Di Area Disiplin Ketat Proteksi Cut Loss (CL).")
+        st.warning("Menampilkan Emiten Area Disiplin Cut Loss.")
 
-    # Finalisasi Visual Kolom Tabel
+    # Finalisasi Visual Formatter Kolom Tabel Hulu
     df_filtered["Selisih"] = df_filtered["Selisih"].apply(lambda x: f"{'+' if x > 0 else ''}{int(x):,}")
     df_filtered["Index Individual"] = df_filtered["Index Individual"].apply(lambda x: f"{x} (Pas)" if x == 100.0 else f"{x}")
 
@@ -217,4 +227,4 @@ if processed_rows:
     
     st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
 else:
-    st.error("Menunggu pembukaan jam bursa atau periksa koneksi server Yahoo Finance.")
+    st.error("Gagal memuat data intraday hulu Yahoo Finance. Silakan muat ulang halaman.")
