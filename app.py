@@ -85,7 +85,7 @@ def calculate_advanced_bandarmologi(prices, volumes, price_change_pct):
     elif price_change_pct <= -1.5 and freq_ratio >= 1.3: return "Big Dist", freq_ratio
     return "Neutral", freq_ratio
 # ==========================================
-# 5. SEMESTA EMITEN & FILTER MESIN DATA INDIVIDUAL TANGGUH
+# 5. SEMESTA EMITEN & TRANSMITTER TEXT ONLY MODE
 # ==========================================
 @st.cache_data(ttl=30)
 def get_universal_idx_universe():
@@ -105,12 +105,17 @@ def get_universal_idx_universe():
     ]
 
 def send_telegram_alert(message):
+    """Mengirim pesan teks murni tanpa parser markdown untuk menghindari kegagalan struktural API."""
     url = f"https://telegram.org{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+    payload = {
+        "chat_id": CHAT_ID, 
+        "text": message
+    }
     try:
         response = requests.post(url, json=payload, timeout=10)
         return response.status_code == 200
-    except Exception: return False
+    except Exception: 
+        return False
 def fetch_full_spectrum_data():
     tickers = get_universal_idx_universe()
     data_list = []
@@ -122,16 +127,13 @@ def fetch_full_spectrum_data():
         try:
             progress_bar.progress((idx + 1) / total_tickers, text=f"Membaca Jalur Sesi 5: {ticker.replace('.JK', '')}")
             
-            # Download individual asli Sesi 5 Anda
             df_ticker = yf.download(ticker, period="5d", interval="1d", progress=False)
             if df_ticker.empty or len(df_ticker) < 2: continue
             
-            # --- PENJINAK MULTIINDEX WAJIB SURI: Meratakan nama kolom berlapis ---
+            # --- PENJINAK MULTIINDEX WAJIB: Meratakan nama kolom berlapis ---
             if isinstance(df_ticker.columns, pd.MultiIndex):
-                # Jika kolomnya berbentuk (Close, BBCA.JK), kita ratakan menjadi hanya 'Close'
                 df_ticker.columns = df_ticker.columns.get_level_values(0)
             
-            # Ambil array values secara aman setelah kolom diratakan
             close_array = df_ticker["Close"].values.flatten()
             vol_array = df_ticker["Volume"].values.flatten()
             high_array = df_ticker["High"].values.flatten()
@@ -145,11 +147,9 @@ def fetch_full_spectrum_data():
             last_low = float(low_array[-1])
             last_open = float(open_array[-1])
             
-            # Hitung Nilai Transaksi Rupiah Sesi 5
             turnover_rupiah = current_live_price * last_volume
             min_turnover_bytes = min_turnover_miliar * 1_000_000_000
             
-            # Kunci Sesi 6: Emiten jangan dipangkas/dibuang hulu agar semua tampil di layar
             is_liquid = turnover_rupiah >= min_turnover_bytes
                 
             price_change_pct = ((current_live_price - prev_close_price) / prev_close_price) * 100
@@ -177,7 +177,6 @@ def fetch_full_spectrum_data():
             historical_mean = np.mean(close_array)
             indeks_individual = (current_live_price / historical_mean) * 100 if historical_mean > 0 else 100.0
             
-            # Sinyal Sesi 5 Rumor & Bandar Anda
             rumor_txt, rumor_score = scan_news_and_rumors_sentiment(ticker)
             bandar_status, freq_ratio = calculate_advanced_bandarmologi(close_array, vol_array, price_change_pct)
             
@@ -256,22 +255,21 @@ if not df_master.empty:
     if st.button("🔄 Reset Tampilan & Lihat Semua Emiten (Universal Scope)", type="secondary"):
         st.session_state.filter_mode = "ALL"
 
-    # --- TRANSMITTER TELEGRAM BERBASIS DATA RIIL ---
+    # --- TRANSMITTER TELEGRAM DENGAN FORMAT STRING BERSIH ---
     st.markdown("---")
     if st.button("🚀 PANCARKAN SINYAL AKTIF KE TELEGRAM", type="primary", use_container_width=True):
         emiten_aktif = df_master[df_master['Ledger_Status'] != "HOLD"]
         if not emiten_aktif.empty:
-            pesan_laporan = "🔔 *AI SCALPER REPORT - SESI 6 MASTER*\n\n"
-            for _, row in emiten_aktif.head(10).iterrows():
-                pesan_laporan += f"• *{row['Ticker']}* | Harga: Rp{int(row['Live Price']):,} ({row['Arrow']}{row['Change (%)']}%)\n  Selisih: {int(row['Selisih'])} | Indeks: {row['Index Individual']}\n"
+            pesan_laporan = "=== AI SCALPER REPORT - SESI 6 MASTER ===\n\n"
+            for idx, row in emiten_aktif.head(10).iterrows():
+                pesan_laporan += f"- {row['Ticker']} | Harga: Rp {int(row['Live Price'])} ({row['Arrow']} {row['Change (%)']}%)\n  Selisih: {int(row['Selisih'])} | Indeks: {row['Index Individual']}\n\n"
             
             sukses = send_telegram_alert(pesan_laporan)
             if sukses: st.success("✅ Sinyal aktif sukses dipancarkan ke Telegram!")
-            else: st.error("❌ Telegram gagal merespons. Periksa kecocokan Chat ID Anda.")
+            else: st.error("❌ Telegram gagal merespons. Silakan matikan dan hidupkan ulang Bot Anda.")
         else:
             st.warning("Tidak ada emiten aktif untuk dipancarkan saat ini.")
 
-    # Aplikasi Saringan Lapisan Atas Berdasarkan Tombol Komponen Tanpa Memangkas Data
     df_filtered = df_master.copy()
     if st.session_state.filter_mode == "SINYAL":
         df_filtered = df_master[df_master['Ledger_Status'] == "SIGNAL RELEASED"]
@@ -280,7 +278,7 @@ if not df_master.empty:
     elif st.session_state.filter_mode == "CL":
         df_filtered = df_master[df_master['Ledger_Status'] == "CUT LOSS"]
 
-    # Transformasi Layout String Untuk Kenyamanan Tampilan Visual
+    # Transformasi Layout Tampilan Visual Tabel
     df_filtered["Live Price"] = df_filtered["Live Price"].apply(lambda x: f"Rp {int(x):,}")
     df_filtered["Selisih"] = df_filtered["Selisih"].apply(lambda x: f"{'+' if x > 0 else ''}{int(x):,}")
     df_filtered["Buy Vol"] = df_filtered["Buy Vol"].apply(lambda x: f"{int(x):,}")
