@@ -10,11 +10,11 @@ import gc
 # ==============================================================================
 st.set_page_config(page_title="AI Trading BEI - Sesi 6 Master", layout="wide")
 
-# Kredensial Utama Anda (Terkunci, jangan diubah)
+# Kredensial Utama Anda (Terkunci Sempurna)
 TOKEN_TELEGRAM = "8701590259:AAFHOTaWoKMk2qCsReI6RlW76NOLm0dtluo"
 CHAT_ID_TELEGRAM = "5282255947" 
 
-# Daftar Komposisi Universal Scope Lengkap Sesuai Permintaan (Tanpa Dipangkas)
+# Daftar Komposisi Universal Scope Lengkap Tanpa Pemangkasan Harian
 TICKERS = [
     "BBCA.JK", "BBRI.JK", "BMRI.JK", "BBNI.JK", "TLKM.JK", "ASII.JK", "UNVR.JK",
     "GOTO.JK", "ADRO.JK", "PTBA.JK", "ITMG.JK", "UNTR.JK", "PGAS.JK", "AKRA.JK",
@@ -22,20 +22,41 @@ TICKERS = [
     "SMGR.JK", "INDF.JK", "ICBP.JK", "CPIN.JK", "MEDC.JK", "HRUM.JK"
 ]
 # ==============================================================================
-# 2. MESIN DATA AGREGASI & TRANSMITTER TELEGRAM VIA STREAMLIT CLOUD
+# 2. MESIN DATA INDIVIDUAL TANGGUH (KEMBALI KE METODE SESI 5 YANG STABIL)
 # ==============================================================================
 @st.cache_data(ttl=60)
-def fetch_all_market_data(ticker_list):
-    """Mengunduh seluruh emiten secara massal untuk efisiensi RAM 4GB."""
-    try:
-        df_all = yf.download(ticker_list, period="5d", interval="1d", group_by='ticker', progress=False)
-        gc.collect()
-        return df_all
-    except Exception:
-        return pd.DataFrame()
+def fetch_individual_market_data(ticker_list):
+    """
+    Menggunakan pendekatan Sesi 5: Mendownload data per emiten secara mandiri.
+    Jika satu emiten diblokir atau gagal, emiten lain tidak akan ikut rusak.
+    """
+    data_dict = {}
+    for ticker in ticker_list:
+        try:
+            # Menarik data 5 hari ke belakang untuk perhitungan Fair Value historis harian
+            df_ticker = yf.download(ticker, period="5d", interval="1d", progress=False)
+            
+            if not df_ticker.empty and len(df_ticker) >= 2:
+                # Menjinakkan struktur MultiIndex jika yfinance mengembalikannya secara sepihak
+                if isinstance(df_ticker.columns, pd.MultiIndex):
+                    if ticker in df_ticker.columns.levels:
+                        df_clean = df_ticker[ticker].dropna()
+                    else:
+                        df_clean = df_ticker.copy().dropna()
+                else:
+                    df_clean = df_ticker.dropna()
+                
+                if len(df_clean) >= 2:
+                    data_dict[ticker] = df_clean
+        except Exception:
+            # Sesi 5 Guardrail: Lewati emiten yang bermasalah, pertahankan yang berhasil
+            continue
+            
+    gc.collect() # Manajemen RAM 4GB Streamlit Cloud tetap aktif
+    return data_dict
 
 def send_telegram_alert(message):
-    """Menembakkan kompilasi laporan sinyal ke Telegram API."""
+    """Fungsi pengirim laporan sinyal langsung ke Telegram API."""
     url = f"https://telegram.org{TOKEN_TELEGRAM}/sendMessage"
     payload = {
         "chat_id": CHAT_ID_TELEGRAM,
@@ -48,19 +69,11 @@ def send_telegram_alert(message):
     except Exception as e:
         return 500, str(e)
 # ==============================================================================
-# 3. CORE METRICS LOGIC: SELISIH, FREKUENSI, DAN INDEKS INDIVIDUAL 100
+# 3. CORE METRICS LOGIC: INDEKS INDIVIDUAL 100 & FLUKTUASI REAL-TIME
 # ==============================================================================
-def process_ticker_metrics(ticker, df_all):
-    """Mengekstrak seluruh metrik pasar hulu tanpa ada penyaringan awal."""
+def process_ticker_metrics(ticker, df_ticker):
+    """Memproses metrik finansial secara akurat dari data yang berhasil diunduh."""
     try:
-        if ticker in df_all.columns.levels:
-            df_ticker = df_all[ticker].dropna()
-        else:
-            return None
-            
-        if len(df_ticker) < 2:
-            return None
-            
         today = df_ticker.iloc[-1]
         yesterday = df_ticker.iloc[-2]
         
@@ -71,10 +84,10 @@ def process_ticker_metrics(ticker, df_all):
         volume_val = float(today['Volume'])
         prev_close = float(yesterday['Close'])
         
-        # 1. KOLOM SELISIH FLUKTUATIF: (Harga real-time / Close Hari ini - Close Kemarin)
+        # 1. KOLOM SELISIH FLUKTUATIF (Harga Penutupan Real-Time vs Kemarin)
         selisih_harga = close_val - prev_close
         
-        # Formula Proksi Volume Presisi Tinggi (Tick-Volume Proxy)
+        # Formula Proksi Volume Presisi Tinggi (Tick-Volume Proxy Sesi 6)
         range_width = high_val - low_val
         price_position = (close_val - low_val) / range_width if range_width > 0 else 0.5
         close_vs_open = 0.6 if close_val > open_val else (0.4 if close_val < open_val else 0.5)
@@ -83,7 +96,7 @@ def process_ticker_metrics(ticker, df_all):
         sell_volume = volume_val * (1.0 - buy_fraction)
         selisih_volume = buy_volume - sell_volume
         
-        # 2. KOLOM FREKUENSI PROKSI MARKET
+        # 2. KOLOM FREKUENSI PROKSI
         np.random.seed(int(close_val) % 1000 + 1)
         estimated_frequency = int(volume_val / np.random.randint(15, 30)) if volume_val > 0 else 0
         
@@ -91,7 +104,7 @@ def process_ticker_metrics(ticker, df_all):
         historical_mean = df_ticker['Close'].mean()
         indeks_individual = (close_val / historical_mean) * 100 if historical_mean > 0 else 100.0
 
-        # Algoritma Penentuan Status Log Sinyal Ledger
+        # Algoritma Penentuan Sinyal & Win-Rate Ledger (TP/CL 3% - 4%)
         signal = "▬"
         tp_price = close_val * 1.03
         cl_price = close_val * 0.96
@@ -121,18 +134,19 @@ def process_ticker_metrics(ticker, df_all):
     except Exception:
         return None
 # ==============================================================================
-# 4. ENGINE VIEW & DASHBOARD INTERAKTIF (PERFORMA STABIL 24/7)
+# 4. ENGINE VIEW UI & TRANSMITTER MANAGEMENT
 # ==============================================================================
 st.title("📈 AI TRADING SYSTEM - INDONESIA STOCK EXCHANGE")
-st.subheader("Sesi 6 Master: Tampilan Komposisi Universal Tanpa Pemangkasan Awal")
+st.subheader("Sesi 6 Master: Restorasi Stabilitas Arsitektur Individual Sesi 5")
 
-with st.spinner("Sinkronisasi Data Massal Seluruh Emiten BEI..."):
-    df_raw_massal = fetch_all_market_data(TICKERS)
+# Proses data hulu menggunakan perlindungan Sesi 5 (Satu per Satu)
+with st.spinner("Memindai Data Emiten BEI via Jalur Aman Sesi 5..."):
+    dict_raw_data = fetch_individual_market_data(TICKERS)
 
 processed_rows = []
-if not df_raw_massal.empty:
-    for ticker in TICKERS:
-        metrics = process_ticker_metrics(ticker, df_raw_massal)
+for ticker in TICKERS:
+    if ticker in dict_raw_data:
+        metrics = process_ticker_metrics(ticker, dict_raw_data[ticker])
         if metrics is not None:
             processed_rows.append(metrics)
 
@@ -142,7 +156,6 @@ if processed_rows:
     st.write("### 🎛️ Win-Rate Ledger & Kendali Sinyal Kontrol")
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     
-    # Hitung total filter data hulu untuk kebutuhan nilai pada tombol pintas
     total_sinyal_count = len(df_master[df_master['Sinyal'] != "▬"])
     total_tp_count = len(df_master[df_master['Ledger_Status'] == "TARGET PROFIT"])
     total_cl_count = len(df_master[df_master['Ledger_Status'] == "CUT LOSS"])
@@ -176,12 +189,12 @@ if processed_rows:
             if status_code == 200:
                 st.success("✅ Sinyal aktif sukses dipancarkan ke aplikasi Telegram Anda!")
             else:
-                st.error(f"❌ Telegram Gagal Merespons (Error {status_code}). Periksa kelayakan Chat ID Anda.")
+                st.error(f"❌ Telegram API Error {status_code}! Periksa kembali Chat ID Akun Anda.")
                 st.json(json_response)
         else:
-            st.warning("Tidak ada emiten bersinyal aktif saat ini untuk dikirim.")
+            st.warning("Tidak ada emiten bersinyal aktif (▲/▼) saat ini untuk dikirim.")
 
-    # Aplikasi Logika Saringan Tampilan UI Berbasis Tombol yang Di-klik
+    # Saringan Tampilan UI Sesuai State Tombol yang Diklik
     df_filtered = df_master.copy()
     if st.session_state.filter_mode == "SINYAL":
         df_filtered = df_master[df_master['Sinyal'] != "▬"]
@@ -193,7 +206,7 @@ if processed_rows:
         df_filtered = df_master[df_master['Ledger_Status'] == "CUT LOSS"]
         st.warning("Menampilkan Emiten yang Berada Di Area Disiplin Ketat Proteksi Cut Loss (CL).")
 
-    # Transformasi akhir format visualisasi kolom tabel
+    # Finalisasi Visual Kolom Tabel
     df_filtered["Selisih"] = df_filtered["Selisih"].apply(lambda x: f"{'+' if x > 0 else ''}{int(x):,}")
     df_filtered["Index Individual"] = df_filtered["Index Individual"].apply(lambda x: f"{x} (Pas)" if x == 100.0 else f"{x}")
 
@@ -204,4 +217,4 @@ if processed_rows:
     
     st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
 else:
-    st.error("Gagal menarik data pasar hulu harian Yahoo Finance.")
+    st.error("Menunggu pembukaan jam bursa atau periksa koneksi server Yahoo Finance.")
