@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timedelta
 
 # ==========================================
-# 1. KONFIGURASI KREDENSIAL & TELEGRAM
+# 1. KONFIGURASI KREDENSIAL & TELEGRAM ASLI
 # ==========================================
 TOKEN = "8701590259:AAFHOTaWoKMk2qCsReI6RlW76NOLm0dtluo".strip()
 CHAT_ID = "5282255947".strip()
@@ -37,7 +37,7 @@ auto_refresh = st.sidebar.checkbox("Auto Refresh Live", value=True)
 
 st.success(f"🟢 SESI 5 ONLINE: Memfilter Saham > Rp {min_turnover_miliar} Miliar & Menghitung Akurasi AI")
 # ==========================================
-# 3. WIN-RATE LEDGER & MEMORY SYSTEM
+# 3. WIN-RATE LEDGER & MEMORY SYSTEM ASLI
 # ==========================================
 LEDGER_FILE = "ai_win_rate_ledger.json"
 
@@ -65,7 +65,7 @@ def save_ledger(ledger_data):
 ledger = load_ledger()
 
 # ==========================================
-# 4. MULTI-SPECTRUM ANALYSIS FUNCTIONS
+# 4. MULTI-SPECTRUM ANALYSIS FUNCTIONS ASLI
 # ==========================================
 def scan_news_and_rumors_sentiment(ticker_name):
     np.random.seed(int(time.time()) % 1000 + hash(ticker_name) % 100)
@@ -73,7 +73,6 @@ def scan_news_and_rumors_sentiment(ticker_name):
     if sentiment_score > 0.4: return "🔥 RUMOR POSITIF", sentiment_score
     elif sentiment_score < -0.1: return "⚠️ RUMOR NEGATIF", sentiment_score
     return "🌐 Sentimen Stabil", sentiment_score
-
 def calculate_advanced_bandarmologi(prices, volumes, price_change_pct):
     if len(prices) < 2: return "Neutral", 1.0
     last_vol = volumes[-1]
@@ -84,8 +83,9 @@ def calculate_advanced_bandarmologi(prices, volumes, price_change_pct):
     elif price_change_pct > 0.3 and freq_ratio >= 1.0: return "Accum", freq_ratio
     elif price_change_pct <= -1.5 and freq_ratio >= 1.3: return "Big Dist", freq_ratio
     return "Neutral", freq_ratio
+
 # ==========================================
-# 5. TECHNICAL & LIQUIDITY FILTER SCANNER ENGINE
+# 5. SEMESTA UNIVERSE SAHAM ASLI SESI 5
 # ==========================================
 @st.cache_data(ttl=300)
 def get_universal_idx_universe():
@@ -103,7 +103,6 @@ def get_universal_idx_universe():
         "RMKE.JK", "SCMA.JK", "SGER.JK", "SMIL.JK", "SMRA.JK", "SSIA.JK", "TAPG.JK", "TINS.JK", 
         "TLKM.JK", "TOBA.JK", "TPIA.JK", "UNTR.JK", "UNVR.JK", "WIFI.JK", "WIRG.JK"
     ]
-
 def fetch_full_spectrum_data():
     tickers = get_universal_idx_universe()
     data_list = []
@@ -117,6 +116,10 @@ def fetch_full_spectrum_data():
             
             df_ticker = yf.download(ticker, period="5d", interval="1d", progress=False)
             if df_ticker.empty or len(df_ticker) < 2: continue
+            
+            # Pengaman MultiIndex internal
+            if isinstance(df_ticker.columns, pd.MultiIndex):
+                df_ticker.columns = df_ticker.columns.get_level_values(0)
             
             close_array = df_ticker["Close"].values.flatten()
             vol_array = df_ticker["Volume"].values.flatten()
@@ -158,7 +161,7 @@ def fetch_full_spectrum_data():
                               score_news * ledger["weights"]["news_rumor"] +
                               score_bandar * ledger["weights"]["bandarmologi"])
             
-            # Melengkapi penutupan objek dictionary yang terpotong dari teks Anda
+            # VALIDASI STRUKTUR: Menutup secara utuh kamus data list Sesi 5 Anda yang terpotong
             data_list.append({
                 "Ticker": ticker.replace(".JK", ""), 
                 "Prev Close": round(prev_close_price, 2), 
@@ -180,12 +183,26 @@ def fetch_full_spectrum_data():
     gc.collect()
     return pd.DataFrame(data_list)
 # ==========================================
-# 6. DASHBOARD INTERAKTIF & RENDERING TABEL SESI 5
+# 6. RENDERING DASHBOARD & INTEGRASI TELEBOT TRANSMIT
 # ==========================================
 df_result = fetch_full_spectrum_data()
 
 if not df_result.empty:
-    # Menampilkan DataFrame hasil akhir Sesi 5 riil di layar Streamlit
+    # Tampilkan tabel utama milik Sesi 5 Anda secara utuh
     st.dataframe(df_result, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    # Pemicu Pemancar Menggunakan Pustaka telebot Bawaan Asli Skrip Anda
+    if st.button("🚀 PANCARKAN SINYAL AKTIF SESI 5 KE TELEGRAM", type="primary", use_container_width=True):
+        try:
+            pesan_laporan = "🔔 AI SCALPER REPORT - SESI 5 ONLINE\n\n"
+            for idx, row in df_result.head(5).iterrows():
+                pesan_laporan += f"• Ticker: {row['Ticker']} | Price: {row['Live Price']} ({row['Arrow']} {row['Change (%)']}%)\n  Value: {row['Value (M)']}M | Bandar: {row['Bandarmologi']}\n\n"
+            
+            # Menggunakan perintah kirim objek bot asli milik Anda
+            bot.send_message(CHAT_ID, pesan_laporan)
+            st.success("✅ Sukses! Sinyal Sesi 5 murni berhasil dipancarkan ke Telegram Anda.")
+        except Exception as error_telegram:
+            st.error(f"❌ Gagal memancarkan sinyal. Detail kendala: {error_telegram}")
 else:
     st.warning("Tidak ada saham yang memenuhi kriteria likuiditas harian saat ini.")
