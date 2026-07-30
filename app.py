@@ -17,17 +17,17 @@ CHAT_ID = "5282255947".strip()
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================================
-# 2. CONFIG DASHBOARD (SESI 6 MASTER UNIVERSAL)
+# 2. CONFIG DASHBOARD (SESI 7: AUTO-BROADCAST)
 # ==========================================
 st.set_page_config(
-    page_title="AI Scalper Pro - Sesi 6 Master",
-    page_icon="📱",
+    page_title="AI Scalper Pro - Sesi 7 Master",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-st.title("📈 AI Scalper Pro - Sesi 6 Master")
-st.caption("Engine: Python 3.14.6 | Sesi 6 Master: Suntikan Kolom Interaktif Tanpa Rombakan Hulu ⚡")
+st.title("🤖 AI Scalper Pro - Sesi 7 Master Automation")
+st.caption("Engine: Python 3.14.6 | Sesi 7: Auto-Signal Broadcast & Deep Recommendation Matrix ⚡")
 
 # Kontrol Parameter Utama di Sidebar
 st.sidebar.header("🎛️ AI Scanner Configuration")
@@ -35,7 +35,7 @@ min_turnover_miliar = st.sidebar.slider("Minimal Nilai Transaksi (Miliar Rp)", 1
 vol_spike_threshold = st.sidebar.slider("Sensitivitas Volume Spike", 1.0, 3.0, 1.3, 0.1)
 auto_refresh = st.sidebar.checkbox("Auto Refresh Live", value=True)
 
-st.success(f"🟢 SESI 6 MASTER ONLINE: Menampilkan Semua Universal Scope Berbasis Jalur Sukses Sesi 5")
+st.success(f"🔥 SESI 7 AUTOMATION ONLINE: Pemancar Sinyal Otomatis Tanpa Klik Aktif")
 # ==========================================
 # 3. WIN-RATE LEDGER & MEMORY SYSTEM ASLI
 # ==========================================
@@ -61,7 +61,6 @@ def save_ledger(ledger_data):
             json.dump(ledger_data, f, indent=4)
     except Exception: pass
 
-# Inisialisasi Database Jurnal
 ledger = load_ledger()
 
 # ==========================================
@@ -85,7 +84,7 @@ def calculate_advanced_bandarmologi(prices, volumes, price_change_pct):
     return "Neutral", freq_ratio
 
 # ==========================================
-# 5. SEMESTA UNIVERSE SAHAM ASLI SESI 5
+# 5. SEMESTA UNIVERSE SAHAM ASLI SESI 5/6
 # ==========================================
 @st.cache_data(ttl=300)
 def get_universal_idx_universe():
@@ -107,18 +106,16 @@ def fetch_full_spectrum_data():
     tickers = get_universal_idx_universe()
     data_list = []
     
-    progress_bar = st.progress(0, text="AI Memverifikasi Likuiditas Saham > 5 Miliar...")
+    progress_bar = st.progress(0, text="AI Memverifikasi Likuiditas & Analisis Sinyal...")
     total_tickers = len(tickers)
     
     for idx, ticker in enumerate(tickers):
         try:
-            progress_bar.progress((idx + 1) / total_tickers, text=f"Checking Value: {ticker.replace('.JK', '')}")
+            progress_bar.progress((idx + 1) / total_tickers, text=f"Analyzing Target: {ticker.replace('.JK', '')}")
             
-            # Mempertahankan 100% Jalur Download Sukses Sesi 5 Anda
             df_ticker = yf.download(ticker, period="5d", interval="1d", progress=False)
             if df_ticker.empty or len(df_ticker) < 2: continue
             
-            # Pengaman struktur kolom tumpuk
             if isinstance(df_ticker.columns, pd.MultiIndex):
                 df_ticker.columns = df_ticker.columns.get_level_values(0)
             
@@ -135,21 +132,15 @@ def fetch_full_spectrum_data():
             last_low = float(low_array[-1])
             last_open = float(open_array[-1])
             
-            # Perhitungan Nilai Transaksi Rupiah Sesi 5
             turnover_rupiah = current_live_price * last_volume
             min_turnover_bytes = min_turnover_miliar * 1_000_000_000
-            
-            # INSTRUKSI KETAT: Loloskan semua emiten tanpa pemangkasan hulu
             is_liquid = turnover_rupiah >= min_turnover_bytes
                 
             price_change_pct = ((current_live_price - prev_close_price) / prev_close_price) * 100
             arrow = "▲" if price_change_pct > 0 else ("▼" if price_change_pct < 0 else "▬")
             
-            # --- INSERSILAH LOGIKA TAMBAHAN SESI 6 DI SINI ---
-            # 1. KOLOM SELISIH FLUKTUATIF (Live Close - Close Kemarin)
             selisih_harga_realtime = current_live_price - prev_close_price
             
-            # 2. PENDALAMAN PROKSI LIVE BUY/SELL VOLUME (Tick-Volume Proxy Sesi 6)
             range_width = last_high - last_low
             price_position = (current_live_price - last_low) / range_width if range_width > 0 else 0.5
             close_vs_open = 0.6 if current_live_price > last_open else (0.4 if current_live_price < last_open else 0.5)
@@ -159,15 +150,12 @@ def fetch_full_spectrum_data():
             sell_volume = int(last_volume * (1.0 - base_buy_pct))
             selisih_volume_murni = buy_volume - sell_volume
             
-            # 3. KOLOM FREKUENSI PROKSI MARKET KONSISTEN
             np.random.seed(int(current_live_price) % 1000 + idx + 1)
             estimated_frequency = int(last_volume / np.random.randint(15, 30)) if last_volume > 0 else 0
             
-            # 4. KOLOM INDEX INDIVIDUAL (SKALA 100 = PAS HARGA WAJAR HISTORIS)
             historical_mean = np.mean(close_array)
             indeks_individual = (current_live_price / historical_mean) * 100 if historical_mean > 0 else 100.0
             
-            # Parameter Asli Sesi 5 Anda
             rumor_txt, rumor_score = scan_news_and_rumors_sentiment(ticker)
             bandar_status, freq_ratio = calculate_advanced_bandarmologi(close_array, vol_array, price_change_pct)
             
@@ -183,12 +171,20 @@ def fetch_full_spectrum_data():
                               score_news * ledger["weights"]["news_rumor"] +
                               score_bandar * ledger["weights"]["bandarmologi"])
             
-            # Penentuan Klasifikasi State Saringan Ledger UI (Dual Protection 3% - 5%)
+            # --- INJEKSI SESI 7: MATRIKS REKOMENDASI DEEP KRETERIA KETAT ---
+            ai_recommendation = "HOLD"
             ledger_status = "HOLD"
-            if price_change_pct >= 2.5 and selisih_volume_murni > 0:
-                ledger_status = "TARGET PROFIT"
-            elif price_change_pct <= -2.5 or selisih_volume_murni < 0:
-                ledger_status = "CUT LOSS"
+            
+            # Kriteria Ketat Rekomendasi BUY (Harga Naik, Volume Buy Unggul, Vol Spike Tinggi, Accumulasi Bandar)
+            if price_change_pct > 1.0 and selisih_volume_murni > 0 and vol_spike >= vol_spike_threshold and bandar_status in ["Big Accum", "Accum"]:
+                ai_recommendation = "REKOMENDASI BUY STRONG"
+                ledger_status = "TARGET PROFIT" if price_change_pct >= 3.0 else "SIGNAL RELEASED"
+            
+            # Kriteria Ketat Rekomendasi SELL (Harga Turun, Volume Sell Dominan, Distribusi Bandar hulu)
+            elif price_change_pct < -1.0 and selisih_volume_murni < 0 and bandar_status in ["Big Dist"]:
+                ai_recommendation = "REKOMENDASI SELL STRONG"
+                ledger_status = "CUT LOSS" if price_change_pct <= -3.0 else "SIGNAL RELEASED"
+                
             elif is_liquid:
                 ledger_status = "SIGNAL RELEASED"
 
@@ -208,7 +204,8 @@ def fetch_full_spectrum_data():
                 "Vol Spike": round(vol_spike, 2),
                 "Rumor": rumor_txt, 
                 "AI Score": round(ai_final_score, 2),
-                "Ledger_Status": ledger_status
+                "Ledger_Status": ledger_status,
+                "AI_Recommendation": ai_recommendation
             })
         except Exception:
             continue
@@ -217,14 +214,13 @@ def fetch_full_spectrum_data():
     gc.collect()
     return pd.DataFrame(data_list)
 # ==========================================
-# 6. DASHBOARD INTERAKTIF ENGINE VIEW & UI BUTTONS
+# 6. ENGINE VIEW UI & TRANSMITTER AUTOMATION
 # ==========================================
 df_master = fetch_full_spectrum_data()
 
 if not df_master.empty:
     st.write("### 🎛️ Win-Rate Ledger & Kendali Sinyal Kontrol")
     
-    # Hitung total filter komponen untuk dipasang pada teks tombol klik
     total_sinyal_count = len(df_master[df_master['Ledger_Status'] == "SIGNAL RELEASED"])
     total_tp_count = len(df_master[df_master['Ledger_Status'] == "TARGET PROFIT"])
     total_cl_count = len(df_master[df_master['Ledger_Status'] == "CUT LOSS"])
@@ -247,25 +243,36 @@ if not df_master.empty:
     if st.button("🔄 Reset Tampilan & Lihat Semua Emiten (Universal Scope)", type="secondary"):
         st.session_state.filter_mode = "ALL"
 
-    # --- TRANSMITTER TELEBOT TELEGRAM ASLI (TEXT ONLY UNTUK ANTI ERROR PARSER) ---
-    st.markdown("---")
-    if st.button("🚀 PANCARKAN SINYAL AKTIF SESI 6 MASTER KE TELEGRAM", type="primary", use_container_width=True):
-        try:
-            emiten_aktif = df_master[df_master['Ledger_Status'] != "HOLD"]
-            if not emiten_aktif.empty:
-                pesan_laporan = "=== AI SCALPER REPORT - SESI 6 MASTER ===\n\n"
-                for idx, row in emiten_aktif.head(10).iterrows():
-                    pesan_laporan += f"- {row['Ticker']} | Harga: Rp {int(row['Live Price'])} ({row['Arrow']} {row['Change (%)']}%)\n  Selisih: {int(row['Selisih'])} | Indeks: {row['Index Individual']}\n\n"
-                
-                # Menggunakan perintah pengiriman pustaka telebot asli bawaan skrip Anda yang terbukti sukses
-                bot.send_message(CHAT_ID, pesan_laporan)
-                st.success("✅ Sukses! Laporan Sesi 6 Master berhasil dipancarkan ke Telegram Anda.")
-            else:
-                st.warning("Tidak ada emiten aktif bersinyal saat ini.")
-        except Exception as err:
-            st.error(f"❌ Pemancaran gagal akibat kendala internal: {err}")
+    # --- TRANSMITTER TELEBOT AUTOMATIC ENGINE (FITUR BARU SESI 7) ---
+    # Memeriksa dan mengirimkan sinyal secara otomatis ke Telegram tanpa menunggu klik tombol
+    if "last_broadcast_time" not in st.session_state:
+        st.session_state.last_broadcast_time = 0
+        
+    current_time_epoch = time.time()
+    # Mengamankan jeda pengiriman minimal 60 detik agar tidak terkena spam/rate limit Telegram
+    if current_time_epoch - st.session_state.last_broadcast_time > 60:
+        # Filter emiten yang memiliki status BUY atau SELL STRONG
+        emiten_rekomendasi = df_master[df_master['AI_Recommendation'] != "HOLD"]
+        
+        if not emiten_rekomendasi.empty:
+            pesan_otomatis = "=== AI SCALPER AUTOMATIC REPORT (SESI 7) ===\n\n"
+            for _, row in emiten_rekomendasi.head(5).iterrows():
+                pesan_otomatis += f"📢 [{row['AI_Recommendation']}]\n"
+                pesan_otomatis += f"• Ticker: {row['Ticker']} | Rp {int(row['Live Price'])}\n"
+                pesan_otomatis += f"• Fluktuasi: {row['Arrow']} {row['Change (%)']}% (Selisih: {int(row['Selisih'])})\n"
+                pesan_otomatis += f"• Penunjang Sesi 7:\n"
+                pesan_otomatis += f"  - Indeks Wajar: {row['Index Individual']}\n"
+                pesan_otomatis += f"  - Vol Spike: {row['Vol Spike']}x (Selisih Vol: {int(row['Selisih Vol'])})\n"
+                pesan_otomatis += f"  - Bandar: {row['Bandarmologi']} | Rumor: {row['Rumor']}\n\n"
+            
+            try:
+                bot.send_message(CHAT_ID, pesan_otomatis)
+                st.toast("✅ Auto-Broadcast Berhasil Dikirim ke Telebot!", icon="🚀")
+                st.session_state.last_broadcast_time = current_time_epoch
+            except Exception:
+                pass
 
-    # Aplikasi Logika State Klik Saringan Tampilan UI
+    # Aplikasi Logika State Saringan Tampilan UI
     df_filtered = df_master.copy()
     if st.session_state.filter_mode == "SINYAL":
         df_filtered = df_master[df_master['Ledger_Status'] == "SIGNAL RELEASED"]
@@ -274,7 +281,7 @@ if not df_master.empty:
     elif st.session_state.filter_mode == "CL":
         df_filtered = df_master[df_master['Ledger_Status'] == "CUT LOSS"]
 
-    # Transformasi Layout Tampilan Akhir Visual Tabel
+    # Format visualisasi tabel akhir
     df_filtered["Live Price"] = df_filtered["Live Price"].apply(lambda x: f"Rp {int(x):,}")
     df_filtered["Selisih"] = df_filtered["Selisih"].apply(lambda x: f"{'+' if x > 0 else ''}{int(x):,}")
     df_filtered["Buy Vol"] = df_filtered["Buy Vol"].apply(lambda x: f"{int(x):,}")
@@ -284,10 +291,10 @@ if not df_master.empty:
     df_filtered["Index Individual"] = df_filtered["Index Individual"].apply(lambda x: f"{x} (Pas)" if x == 100.0 else f"{x}")
 
     ordered_cols = [
-        "Ticker", "Index Individual", "Live Price", "Selisih", "Arrow", "Change (%)", 
+        "Ticker", "AI_Recommendation", "Index Individual", "Live Price", "Selisih", "Arrow", "Change (%)", 
         "Frekuensi", "Buy Vol", "Sell Vol", "Selisih Vol", "Value (M)", "Bandarmologi", "Vol Spike", "Rumor", "AI Score"
     ]
     
     st.dataframe(df_filtered[ordered_cols], use_container_width=True, hide_index=True)
 else:
-    st.error("Gagal menarik data pasar dari Yahoo Finance. Periksa koneksi internet server Anda.")
+    st.error("Gagal menarik data pasar dari Yahoo Finance. Periksa jaringan internet server Anda.")
