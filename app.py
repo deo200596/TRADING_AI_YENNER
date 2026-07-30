@@ -96,7 +96,7 @@ def calculate_advanced_bandarmologi(prices, volumes, price_change_pct):
     elif price_change_pct <= -1.5 and freq_ratio >= 1.3: return "Big Dist", freq_ratio
     return "Neutral", freq_ratio
 # ==========================================
-# 5. TECHNICAL & MASS UNIVERSAL FETCH ENGINE
+# 5. TECHNICAL & MASS UNIVERSAL FETCH ENGINE (ACCURATE SINKRON)
 # ==========================================
 def calculate_rsi(prices, period=14):
     if len(prices) < period: return np.zeros(len(prices), dtype=np.float32)
@@ -154,12 +154,18 @@ def fetch_full_spectrum_data():
             prices = hist["Close"].to_numpy(dtype=np.float32)
             volumes = hist["Volume"].to_numpy(dtype=np.float32)
             
-            # FITUR UTAMA: Mengunci Harga Penutupan Sebelumnya & Harga Saat Ini
-            prev_close_price = float(prices[-2])
+            # REVISI AKURASI HARGA: Mengunci langsung dari metadata resmi previous close yfinance info
+            stock_info = stock.info
+            prev_close_price = float(stock_info.get("regularMarketPreviousClose", prices[-2]))
             current_live_price = float(prices[-1])
+            
+            # Koreksi tambahan jika server yfinance belum melakukan rollover hari bursa baru
+            if current_live_price == prev_close_price and len(prices) >= 3:
+                prev_close_price = float(prices[-3])
+                current_live_price = float(prices[-2])
+            
             price_change_pct = ((current_live_price - prev_close_price) / prev_close_price) * 100
             
-            # FITUR UTAMA: Indikator Panah Emoticon Perubahan Harga
             if price_change_pct > 0: arrow = "▲"
             elif price_change_pct < 0: arrow = "▼"
             else: arrow = "▬"
@@ -208,16 +214,16 @@ if not df_market.empty:
     if "sent_alerts" not in st.session_state: st.session_state.sent_alerts = set()
     if len(st.session_state.sent_alerts) > 500: st.session_state.sent_alerts.clear()
 
-    # LOGIKA KAPAN BUY (Sinyal Saringan Jelang Tutup Pasar / BOSO)
+    # LOGIKA KAPAN BUY: Menyaring saham penumpukan volume akhir sesi (Strategi BOSO)
     df_buy_signals = df_market[(df_market["AI Score"] >= 72.0) & (df_market["Bandarmologi"].isin(["Big Accum", "Accum"])) & (df_market["Vol Spike"] >= vol_spike_threshold)]
     
-    # 🎯 ALARM 1: TRIGGER TAKE PROFIT (Kenaikan Positif 3% s/d 5%)
+    # ALARM 1: TRIGGER TARGET TAKE PROFIT SAAT NAIK KISARAN 3% SAMPAI 5%
     df_tp_signals = df_market[(df_market["Change (%)"] >= 3.0) & (df_market["Change (%)"] <= 5.0)]
     
-    # 🛑 ALARM 2: TRIGGER PROTECTION CUT LOSS (Penurunan Negatif -3% s/d -5%)
+    # ALARM 2: TRIGGER TARGET CUT LOSS PENYELAMAT PSIKOLOGIS SAAT TURUN -3% SAMPAI -5%
     df_cl_signals = df_market[(df_market["Change (%)"] <= -3.0) & (df_market["Change (%)"] >= -5.0)]
 
-    # BROADCAST ACTION BUY KE TELEGRAM
+    # BROADCAST ACTION BUY KE TELEGRAM HP
     for _, row in df_buy_signals.iterrows():
         alert_key = f"BUY_{row['Ticker']}_{row['Live Price']}"
         if alert_key not in st.session_state.sent_alerts:
@@ -234,7 +240,7 @@ if not df_market.empty:
             try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
             except Exception: pass
 
-    # BROADCAST ACTION TAKE PROFIT (ALARM CUAN)
+    # BROADCAST ACTION TAKE PROFIT (ALARM LOCK UNTUNG)
     for _, row in df_tp_signals.iterrows():
         alert_key = f"TP_REACHED_{row['Ticker']}_{row['Live Price']}"
         if alert_key not in st.session_state.sent_alerts:
@@ -251,7 +257,7 @@ if not df_market.empty:
             try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
             except Exception: pass
 
-    # BROADCAST ACTION CUT LOSS (ALARM PENYELAMAT PSIKOLOGIS)
+    # BROADCAST ACTION CUT LOSS (ALARM REM DARURAT PEMBATAS RUGI)
     for _, row in df_cl_signals.iterrows():
         alert_key = f"CL_TRIGGERED_{row['Ticker']}_{row['Live Price']}"
         if alert_key not in st.session_state.sent_alerts:
@@ -262,7 +268,7 @@ if not df_market.empty:
                 f"💵 *Harga Live:* Rp {row['Live Price']:,.2f} ({row['Arrow']} {row['Change (%)']}%)\n"
                 f"📊 *Prev Close Kemarin:* Rp {row['Prev Close']:,.2f}\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"💡 *PEREDA PSIKOLOGIS:* Market berbalik arah turun semenjak pembukaan di area kritis (-3% s/d -5%). Lepas emiten ini secara disiplin sekarang untuk memotong risiko. Modal Anda aman untuk digunakan pada emiten potensial berikutnya!\n"
+                f"💡 *PEREDA PSIKOLOGIS:* Market berbalik arah turun semenkap pembukaan di area kritis (-3% s/d -5%). Lepas emiten ini secara disiplin sekarang untuk memotong risiko. Modal Anda aman untuk digunakan pada emiten potensial berikutnya!\n"
                 f"⏰ _{datetime.now().strftime('%H:%M:%S')} WIB | Disiplin Batasi Risiko_"
             )
             try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
@@ -271,7 +277,7 @@ if not df_market.empty:
     # 7. DESIGN VISUAL UI KHUSUS LAYAR HP MASSAL
     # ==========================================
     st.markdown("### 📊 Ringkasan Proteksi Psikologis")
-    st.metric(label="Total Saham Universe Dipindai", value=f"{len(df_market)} Emiten")
+    st.metric(label="Total Saham Universe Dipindai (LQ45+IDX30+KOMPAS100)", value=f"{len(df_market)} Emiten")
     
     col_b_count, col_tp_count, col_cl_count = st.columns(3)
     col_b_count.metric(label="🛒 Sinyal Buy Close", value=f"{len(df_buy_signals)}")
@@ -299,10 +305,10 @@ if not df_market.empty:
         st.info("Kondisi portofolio aman, tidak ada emiten terpantau jatuh di batas kritis psikologis Anda.")
 
     st.markdown("---")
-    st.markdown("### 📋 Monitor Spektrum Lengkap Pasar Modal")
+    st.markdown("### 📋 Monitor Spektrum Lengkap Pasar Modal (Kolom HP Ringkas)")
     st.dataframe(df_market[["Ticker", "Prev Close", "Live Price", "Arrow", "Change (%)", "Bandarmologi", "AI Score"]], use_container_width=True)
 
-    # Sinkronisasi & Pembebasan RAM
+    # Sinkronisasi & Pembebasan RAM Total ke Server Cloud
     update_ai_weights_learning(ai_memory, df_market)
     del df_market, df_buy_signals, df_tp_signals, df_cl_signals
     gc.collect()
