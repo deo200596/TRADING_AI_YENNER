@@ -17,17 +17,17 @@ CHAT_ID = "5282255947".strip()
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================================
-# 2. CONFIG DASHBOARD (OPTIMASI MASSAL & MOBILE)
+# 2. CONFIG DASHBOARD (OPTIMASI MOBILE HP)
 # ==========================================
 st.set_page_config(
-    page_title="AI Broad-Spectrum Scanner BEI",
-    page_icon="🤖",
+    page_title="AI Scalper Pro Mobile",
+    page_icon="📱",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-st.title("🤖 AI Broad-Spectrum Scanner - BEI Mass Scan")
-st.caption("Engine: Python 3.14.6 | Target Universe: Unique Set LQ45 + IDX30 + KOMPAS100 🚀")
+st.title("📱 AI Scalper Pro - Strategy BOSO 24/7")
+st.caption("Engine: Python 3.14.6 | Sesi 4: Dual Trigger TP & CL Protection Engine 🚀")
 
 # Kontrol Parameter Utama di Sidebar
 st.sidebar.header("🎛️ AI Scanner Configuration")
@@ -35,7 +35,7 @@ vol_spike_threshold = st.sidebar.slider("Sensitivitas Volume Spike", 1.0, 3.0, 1
 rsi_period = int(st.sidebar.number_input("RSI Period", value=14))
 auto_refresh = st.sidebar.checkbox("Auto Refresh Live", value=True)
 
-st.success(f"🟢 MONITORING UTAMA AKTIF: Memindai Seluruh Komponen Utama Pasar Efek Indonesia.")
+st.success(f"🟢 MONITORING UTAMA AKTIF: Dilengkapi Fitur Pereda Beban Psikologis Trader")
 # ==========================================
 # 3. SELF-LEARNING MEMORY ENGINE
 # ==========================================
@@ -119,7 +119,6 @@ def calculate_rsi(prices, period=14):
 
 @st.cache_data(ttl=600)
 def get_universal_idx_universe():
-    """Menggabungkan seluruh konstituen unik LQ45, IDX30, & KOMPAS100 (Update Evaluasi Mayor Berkala)"""
     universe = [
         "AADI.JK", "ACES.JK", "ADMR.JK", "ADRO.JK", "AKRA.JK", "AMMN.JK", "AMRT.JK", "ANTM.JK", 
         "ARCI.JK", "ARTO.JK", "ASII.JK", "BBCA.JK", "BBNI.JK", "BBRI.JK", "BBTN.JK", "BBYB.JK", 
@@ -142,7 +141,6 @@ def fetch_full_spectrum_data():
     end_date = datetime.today()
     start_date = end_date - timedelta(days=365)
     
-    # Progress bar visual untuk memantau loading massal di HP
     progress_bar = st.progress(0, text="Mengunduh Spektrum Pasar Masa Riil...")
     total_tickers = len(tickers)
     
@@ -155,8 +153,16 @@ def fetch_full_spectrum_data():
             
             prices = hist["Close"].to_numpy(dtype=np.float32)
             volumes = hist["Volume"].to_numpy(dtype=np.float32)
-            current_price = float(prices[-1])
-            price_change_pct = ((current_price - float(prices[-2])) / float(prices[-2])) * 100
+            
+            # FITUR UTAMA: Mengunci Harga Penutupan Sebelumnya & Harga Saat Ini
+            prev_close_price = float(prices[-2])
+            current_live_price = float(prices[-1])
+            price_change_pct = ((current_live_price - prev_close_price) / prev_close_price) * 100
+            
+            # FITUR UTAMA: Indikator Panah Emoticon Perubahan Harga
+            if price_change_pct > 0: arrow = "▲"
+            elif price_change_pct < 0: arrow = "▼"
+            else: arrow = "▬"
             
             is_funda_ok, pe, pbv = fetch_fundamental_metrics(stock)
             rumor_txt, rumor_score = scan_news_and_rumors_sentiment(ticker)
@@ -164,7 +170,7 @@ def fetch_full_spectrum_data():
             
             ma50 = float(np.mean(prices[-50:]))
             ma200 = float(np.mean(prices[-200:]))
-            trend = "📈 Uptrend" if current_price > ma50 and ma50 > ma200 else "📉 Downtrend"
+            trend = "📈 Uptrend" if current_live_price > ma50 and ma50 > ma200 else "📉 Downtrend"
             rsi_vals = calculate_rsi(prices, period=rsi_period)
             current_rsi = float(rsi_vals[-1])
             
@@ -182,7 +188,11 @@ def fetch_full_spectrum_data():
                               score_bandar * ai_weights["bandarmologi"])
             
             data_list.append({
-                "Ticker": ticker.replace(".JK", ""), "Price": round(current_price, 2), "Change (%)": round(price_change_pct, 2),
+                "Ticker": ticker.replace(".JK", ""), 
+                "Prev Close": round(prev_close_price, 2),
+                "Live Price": round(current_live_price, 2), 
+                "Arrow": arrow,
+                "Change (%)": round(price_change_pct, 2),
                 "Trend": trend, "RSI": round(current_rsi, 2), "Bandarmologi": bandar_status, "Vol Spike": round(vol_spike, 2),
                 "Rumor Sentiment": rumor_txt, "PE": pe, "PBV": pbv, "AI Score": round(ai_final_score, 2)
             })
@@ -198,86 +208,105 @@ if not df_market.empty:
     if "sent_alerts" not in st.session_state: st.session_state.sent_alerts = set()
     if len(st.session_state.sent_alerts) > 500: st.session_state.sent_alerts.clear()
 
-    # FILTER SIGNAL AKSI TEGAS AI
-    df_buy_signals = df_market[(df_market["AI Score"] >= 72.0) & (df_market["Bandarmologi"].isin(["Big Accum", "Accum"])) & (df_market["RSI"] < 70)]
-    df_sell_signals = df_market[(df_market["AI Score"] <= 48.0) | (df_market["RSI"] >= 80.0)]
+    # LOGIKA KAPAN BUY (Sinyal Saringan Jelang Tutup Pasar / BOSO)
+    df_buy_signals = df_market[(df_market["AI Score"] >= 72.0) & (df_market["Bandarmologi"].isin(["Big Accum", "Accum"])) & (df_market["Vol Spike"] >= vol_spike_threshold)]
+    
+    # 🎯 ALARM 1: TRIGGER TAKE PROFIT (Kenaikan Positif 3% s/d 5%)
+    df_tp_signals = df_market[(df_market["Change (%)"] >= 3.0) & (df_market["Change (%)"] <= 5.0)]
+    
+    # 🛑 ALARM 2: TRIGGER PROTECTION CUT LOSS (Penurunan Negatif -3% s/d -5%)
+    df_cl_signals = df_market[(df_market["Change (%)"] <= -3.0) & (df_market["Change (%)"] >= -5.0)]
 
     # BROADCAST ACTION BUY KE TELEGRAM
     for _, row in df_buy_signals.iterrows():
-        alert_key = f"BUY_{row['Ticker']}_{row['Price']}"
+        alert_key = f"BUY_{row['Ticker']}_{row['Live Price']}"
         if alert_key not in st.session_state.sent_alerts:
-            entry_price = row['Price']
-            stop_loss = entry_price * 0.98
-            target_profit = entry_price * 1.05
-            
             msg = (
-                f"🟢 *[AI ACTION: BUY SIGNAL]* 🟢\n"
+                f"🟢 *[AI ACTION: BUY FOR BOSO]* 🟢\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎯 *MENU:* BELI SAHAM #{row['Ticker']}\n"
-                f"💵 *Harga Masuk:* Rp {entry_price:,.2f}\n"
-                f"🧠 *AI Score:* {row['AI Score']}/100\n"
+                f"🎯 *MENU:* BUY DI JELANG CLOSE #{row['Ticker']}\n"
+                f"💵 *Harga Masuk Live:* Rp {row['Live Price']:,.2f}\n"
+                f"📊 *Prev Close:* Rp {row['Prev Close']:,.2f}\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🛑 *STOP LOSS:* Rp {stop_loss:,.2f} (-2%)\n"
-                f"💰 *TARGET PROFIT:* Rp {target_profit:,.2f} (+5%)\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🐋 *Bandar Flow:* {row['Bandarmologi']}\n"
-                f"🔥 *Kabar/Rumor:* {row['Rumor Sentiment']}\n"
-                f"⚡ *Vol Spike:* {row['Vol Spike']:.2f}x\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⏰ _{datetime.now().strftime('%H:%M:%S')} WIB | Universe Scan_"
+                f"🐋 *Bandar Accum:* {row['Bandarmologi']} | Vol: {row['Vol Spike']:.2f}x\n"
+                f"⏰ _{datetime.now().strftime('%H:%M:%S')} WIB | Siap Pantau Besok Pagi_"
             )
             try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
             except Exception: pass
 
-    # BROADCAST ACTION SELL KE TELEGRAM
-    for _, row in df_sell_signals.iterrows():
-        alert_key = f"SELL_{row['Ticker']}_{row['Price']}"
+    # BROADCAST ACTION TAKE PROFIT (ALARM CUAN)
+    for _, row in df_tp_signals.iterrows():
+        alert_key = f"TP_REACHED_{row['Ticker']}_{row['Live Price']}"
         if alert_key not in st.session_state.sent_alerts:
             msg = (
-                f"🔴 *[AI ACTION: SELL SIGNAL]* 🔴\n"
+                f"💰 *[🎯 ACTION: TAKE PROFIT REACHED]* 💰\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎯 *MENU:* JUAL SAHAM #{row['Ticker']}\n"
-                f"💵 *Harga Keluar:* Rp {row['Price']:,.2f}\n"
-                f"⚠️ *Alasan:* Sinyal pelemahan massal / jenuh beli.\n"
+                f"🎯 *ALARM JUAL (TAKE PROFIT):* #{row['Ticker']}\n"
+                f"💵 *Harga Live:* Rp {row['Live Price']:,.2f} ({row['Arrow']} +{row['Change (%)']}%)\n"
+                f"📊 *Prev Close Kemarin:* Rp {row['Prev Close']:,.2f}\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⏰ _Amankan Modal Tunai Anda Sekarang!_"
+                f"⚠️ *INSTRUKSI:* Harga masuk ke dalam area keuntungan ideal harian Anda (+3% s/d +5%). Klik tombol JUAL di aplikasi sekuritas untuk mengamankan uang tunai!\n"
+                f"⏰ _{datetime.now().strftime('%H:%M:%S')} WIB | Amankan Keuntungan_"
+            )
+            try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
+            except Exception: pass
+
+    # BROADCAST ACTION CUT LOSS (ALARM PENYELAMAT PSIKOLOGIS)
+    for _, row in df_cl_signals.iterrows():
+        alert_key = f"CL_TRIGGERED_{row['Ticker']}_{row['Live Price']}"
+        if alert_key not in st.session_state.sent_alerts:
+            msg = (
+                f"🛑 *[⚠️ ACTION: PROTECTION CUT LOSS]* 🛑\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🚨 *ALARM JUAL (DISIPLIN PROTEKSI):* #{row['Ticker']}\n"
+                f"💵 *Harga Live:* Rp {row['Live Price']:,.2f} ({row['Arrow']} {row['Change (%)']}%)\n"
+                f"📊 *Prev Close Kemarin:* Rp {row['Prev Close']:,.2f}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"💡 *PEREDA PSIKOLOGIS:* Market berbalik arah turun semenjak pembukaan di area kritis (-3% s/d -5%). Lepas emiten ini secara disiplin sekarang untuk memotong risiko. Modal Anda aman untuk digunakan pada emiten potensial berikutnya!\n"
+                f"⏰ _{datetime.now().strftime('%H:%M:%S')} WIB | Disiplin Batasi Risiko_"
             )
             try: bot.send_message(CHAT_ID, msg, parse_mode="Markdown"); st.session_state.sent_alerts.add(alert_key)
             except Exception: pass
     # ==========================================
     # 7. DESIGN VISUAL UI KHUSUS LAYAR HP MASSAL
     # ==========================================
-    st.markdown("### 📊 Ringkasan Sinyal Spektrum")
-    st.metric(label="Total Saham Dipindai (LQ45+IDX30+KOMPAS100)", value=f"{len(df_market)} Emiten")
+    st.markdown("### 📊 Ringkasan Proteksi Psikologis")
+    st.metric(label="Total Saham Universe Dipindai", value=f"{len(df_market)} Emiten")
     
-    col_b_count, col_s_count = st.columns(2)
-    col_b_count.metric(label="Rekomendasi Beli (BUY)", value=f"{len(df_buy_signals)}", delta="Sinyal Lolos Filter", delta_color="normal")
-    col_s_count.metric(label="Rekomendasi Jual (SELL)", value=f"{len(df_sell_signals)}", delta="Sinyal Bahaya", delta_color="inverse")
+    col_b_count, col_tp_count, col_cl_count = st.columns(3)
+    col_b_count.metric(label="🛒 Sinyal Buy Close", value=f"{len(df_buy_signals)}")
+    col_tp_count.metric(label="💰 Zona Jual Cuan (3%-5%)", value=f"{len(df_tp_signals)}")
+    col_cl_count.metric(label="🛑 Zona Disiplin CL (-3% / -5%)", value=f"{len(df_cl_signals)}")
     
     st.markdown("---")
     
-    st.markdown("### 🛒 DAFTAR AKSI BELI (BUY)")
+    st.markdown("### 🛒 DAFTAR REKOMENDASI BELI JELANG CLOSE")
     if not df_buy_signals.empty:
-        st.dataframe(df_buy_signals[["Ticker", "Price", "AI Score", "Bandarmologi"]], use_container_width=True)
+        st.dataframe(df_buy_signals[["Ticker", "Prev Close", "Live Price", "Arrow", "Change (%)"]], use_container_width=True)
     else:
-        st.info("Penyaringan skala besar selesai. Belum ada saham yang memenuhi parameter ketat beli.")
+        st.info("Belum ada saham bursa memenuhi kriteria akumulasi jelang penutupan harian.")
         
-    st.markdown("### 🚨 DAFTAR AKSI JUAL (SELL)")
-    if not df_sell_signals.empty:
-        st.dataframe(df_sell_signals[["Ticker", "Price", "AI Score"]], use_container_width=True)
+    st.markdown("### 💰 SAHAM TARGET TAKE PROFIT (+3% s/d +5%)")
+    if not df_tp_signals.empty:
+        st.dataframe(df_tp_signals[["Ticker", "Prev Close", "Live Price", "Arrow", "Change (%)"]], use_container_width=True)
     else:
-        st.info("Kondisi emiten universe aman dari tanda-tanda kejatuhan parah.")
+        st.info("Belum ada emiten bursa memasuki rentang target keuntungan harian.")
+
+    st.markdown("### 🛑 SAHAM WAJIB CUT LOSS DISIPLIN (-3% s/d -5%)")
+    if not df_cl_signals.empty:
+        st.dataframe(df_cl_signals[["Ticker", "Prev Close", "Live Price", "Arrow", "Change (%)"]], use_container_width=True)
+    else:
+        st.info("Kondisi portofolio aman, tidak ada emiten terpantau jatuh di batas kritis psikologis Anda.")
 
     st.markdown("---")
-    st.markdown("### 📋 Seluruh Hasil Analisis Spektrum Saham Indonesia")
-    st.dataframe(df_market[["Ticker", "Price", "Change (%)", "Bandarmologi", "AI Score"]], use_container_width=True)
+    st.markdown("### 📋 Monitor Spektrum Lengkap Pasar Modal")
+    st.dataframe(df_market[["Ticker", "Prev Close", "Live Price", "Arrow", "Change (%)", "Bandarmologi", "AI Score"]], use_container_width=True)
 
-    # Pembaruan Memori Adaptif & Pembebasan Memori RAM Agresif
+    # Sinkronisasi & Pembebasan RAM
     update_ai_weights_learning(ai_memory, df_market)
-    del df_market, df_buy_signals, df_sell_signals
+    del df_market, df_buy_signals, df_tp_signals, df_cl_signals
     gc.collect()
 
 if auto_refresh:
-    time.slice_delay = 45  # Ditambah sedikit agar tidak melanggar batas request yfinance massal
-    time.sleep(time.slice_delay)
+    time.sleep(45)
     st.rerun()
