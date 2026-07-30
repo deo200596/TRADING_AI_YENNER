@@ -1,0 +1,10 @@
+{
+    "weights": {
+        "fundamental": 0.25,
+        "teknikal": 0.35,
+        "news_rumor": 0.15,
+        "bandarmologi": 0.25
+    },
+    "performance_history": [],
+    "last_updated": "2026-07-30 08:22:11.238306"
+}
