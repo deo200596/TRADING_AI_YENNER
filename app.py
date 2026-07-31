@@ -276,7 +276,7 @@ if not df_linear_base.empty:
         sell_list = []
         for idx, row in df_linear_base.iterrows():
             t = row["Ticker"]
-            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (3.0 <= row["Change_Pct"] <= 5.0) and (t in top_2_volume_tickers):
+            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (1.75 <= row["Change_Pct"] <= 5.0) and (t in top_2_volume_tickers):
                 sell_list.append(row)
                 update_ledger_log("SELL", t)
                 
@@ -299,7 +299,7 @@ if not df_linear_base.empty:
                 except Exception: pass
                 
         if sell_list: st.dataframe(pd.DataFrame(sell_list), use_container_width=True, hide_index=True)
-        else: st.info("Memindai running trade... Belum ada emiten yang memenuhi kriteria distribusi Sell (+3% s/d +5%) detik ini.")
+        else: st.info("Memindai running trade... Belum ada emiten yang memenuhi kriteria distribusi Sell (+1.75% s/d +5%) detik ini.")
 
 else:
     st.error("IP Lokal Anda diblokir sementara oleh server bursa akibat over-refresh harian. Sistem melakukan jembatan pemulihan otomatis...")
