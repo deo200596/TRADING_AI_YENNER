@@ -20,7 +20,7 @@ bot = telebot.TeleBot(TOKEN)
 # 2. CONFIG DASHBOARD (SESI 8: ABSOLUTE REAL DATA)
 # ==========================================
 st.set_page_config(
-    page_title="AI Scalper Pro - Sesi 8 Local Real Data",
+    page_title="YENNER AI Scalper Pro - Sesi 8 Local Real Data",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
