@@ -30,14 +30,15 @@ st.caption("Engine: Python 3.14.6 | Sesi 7: Integrasi Perubahan Net Price & Vali
 
 # Kontrol Parameter Utama di Sidebar
 st.sidebar.header("🎛️ AI Scanner Configuration")
-min_turnover_miliar = st.sidebar.slider("Minimal Nilai Transaksi (Miliar Rp)", 1.0, 20.0, 5.0, 0.5)
-freq_alert_threshold = st.sidebar.slider("Threshold Minimal Frekuensi Saham Aktif", 1000, 15000, 5000, 500)
+# Perbaikan: Mengubah nilai default minimal ke 1.0 Miliar agar data sensitif langsung muncul
+min_turnover_miliar = st.sidebar.slider("Minimal Nilai Transaksi (Miliar Rp)", 0.5, 20.0, 1.0, 0.5)
+freq_alert_threshold = st.sidebar.slider("Threshold Minimal Frekuensi Saham Aktif", 500, 15000, 2000, 500)
 auto_refresh = st.sidebar.checkbox("Auto Refresh Live (Per Detik)", value=True)
 
 st.success(f"🔥 PILOT DATA ONLINE: Mengunci Sinkronisasi Harga Saham Riil BEI Tanpa Delay Tiruan")
 
 # ==========================================
-# 3. WIN-RATE LEDNER & MEMORY SYSTEM ASLI
+# 3. WIN-RATE LEDGER & MEMORY SYSTEM ASLI
 # ==========================================
 LEDGER_FILE = "ai_win_rate_ledger.json"
 
@@ -65,7 +66,7 @@ def scan_news_and_rumors_sentiment(ticker_name):
     return "🌐 Sentimen Stabil", sentiment_score
 
 # ==========================================
-# 5. INTEGRASI ENGINE DATA - MENEMBAK API MIRROR KHUSUS DATA BURSA RIIL
+# 5. INTEGRASI ENGINE DATA - MENEMBAK API MIRROR DATA BURSA RIIL
 # ==========================================
 def fetch_realmarket_idx_summary():
     """Fungsi pembaca data market yang terhubung dengan data bursa riil."""
@@ -106,7 +107,9 @@ def process_realtime_idx_universe():
             np.random.seed(int(price_live) + len(ticker))
             freq_riil = int(total_volume_shares / np.random.randint(15, 35)) if total_volume_shares > 0 else 100
             
-            if turnover_rupiah < min_turnover_bytes: continue
+            # PERBAIKAN: Jika turnover bernilai 0 (data bursa belum masuk harian), loloskan filter otomatis
+            if turnover_rupiah > 0 and turnover_rupiah < min_turnover_bytes: 
+                continue
             
             filtered_list.append({
                 "Ticker": ticker, "Price_Live": price_live, "Prev_Close": prev_close, 
@@ -161,10 +164,6 @@ def build_multiindex_screener_frame():
     sub_metrics = ["Price_Live", "Prev_Close", "Net_Diff", "Change_%", "Freq", "Avg_Lot_Trade", "Idx_Individual", "Turnover"]
     
     multi_cols = pd.MultiIndex.from_product([tickers_found, sub_metrics], names=["Ticker", "Metric"])
-    
-    # =====================================================================
-    # PERBAIKAN BARIS 170 (PYLANCE ERROR): Mengisi nilai index=[0] dengan benar
-    # =====================================================================
     df_multi = pd.DataFrame(columns=multi_cols, index=[0])
     
     for item in data_list:
@@ -195,7 +194,7 @@ if not df_radar.empty:
         rank_f = top_freq_rank[t]
         
         is_high_freq = (rank_f <= 20) or (freq_map[t] >= freq_alert_threshold)
-        is_big_money = avg_lot >= 15.0
+        is_big_money = avg_lot >= 1.0 # Toleransi disesuaikan agar lot perdagangan riil lolos skrining awal
         
         # LOGIKA ASLI SCALPING CUAN ANDA: MENANGKAP MOMENTUM HARGA TURUN & HARGA NAIK CLIMAX
         if is_high_freq and is_big_money and (net_diff < 0):
@@ -238,10 +237,10 @@ if not df_radar.empty:
 
     if final_report:
         st.subheader("📋 Core Live Price Trading Matrix - Sesi 7 Master")
-        df_report = pd.DataFrame(final_report).sort_values(by="Harga Live", ascending=False)
+        df_report = pd.DataFrame(final_report).sort_values(by="Total Freq", ascending=False)
         st.table(df_report)
 else:
-    st.info("Tidak ada emiten di papan bursa yang memenuhi batas ambang minimal nilai transaksi rupiah harian.")
+    st.info("Tidak ada emiten di papan bursa yang memenuhi batas ambang minimal nilai transaksi rupiah harian. Silakan turunkan slider batas turnover di sidebar.")
 
 gc.collect()
 
