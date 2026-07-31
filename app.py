@@ -244,7 +244,7 @@ if not df_linear_base.empty:
         buy_list = []
         for idx, row in df_linear_base.iterrows():
             t = row["Ticker"]
-            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (-5.0 <= row["Change_Pct"] <= -1.0) and (t in top_2_volume_tickers):
+            if (t in top_20_freq_tickers) and (-5.0 <= row["Change_Pct"] <= -2.0):
                 buy_list.append(row)
                 update_ledger_log("BUY", t)
                 
@@ -266,7 +266,7 @@ if not df_linear_base.empty:
                 except Exception: pass
         
         if buy_list: st.dataframe(pd.DataFrame(buy_list), use_container_width=True, hide_index=True)
-        else: st.info("Memindai running trade... Belum ada emiten yang memenuhi akumulasi kriteria Buy (-3% s/d -5%) detik ini.")
+        else: st.info("Memindai running trade... Belum ada emiten yang memenuhi akumulasi kriteria Buy (-2% s/d -5%) detik ini.")
 
     # ----------------------------------------------------------------=
     # MENU 4: DAFTAR EMITEN REKOMENDASI SELL
