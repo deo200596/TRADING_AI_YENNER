@@ -276,7 +276,7 @@ if not df_linear_base.empty:
         sell_list = []
         for idx, row in df_linear_base.iterrows():
             t = row["Ticker"]
-            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (1.75 <= row["Change_Pct"] <= 5.0) and (t in top_2_volume_tickers):
+            if (t in top_20_freq_tickers) and (1.75 <= row["Change_Pct"] <= 5.0):
                 sell_list.append(row)
                 update_ledger_log("SELL", t)
                 
