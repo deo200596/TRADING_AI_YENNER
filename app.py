@@ -5,6 +5,8 @@ import telebot
 import time
 import requests
 import gc
+import json
+import os
 
 # ==========================================
 # 1. KONFIGURASI KREDENSIAL & TELEGRAM ASLI
@@ -14,18 +16,17 @@ CHAT_ID = "5282255947".strip()
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================================
-# 2. CONFIG DASHBOARD (SESI 8: VISUAL REFACTOR)
+# 2. CONFIG DASHBOARD (SESI 8: LEDGER UPGRADE)
 # ==========================================
 st.set_page_config(
-    page_title="AI Scalper Pro - Sesi 8 Master Visual",
+    page_title="AI Scalper Pro - Sesi 8 Master Premium",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Pengayaan visual teks utama menggunakan komponen Markdown bergaya modern
 st.markdown("<h1 style='text-align: left; color: #1E3A8A;'>🤖 AI Scalper Pro — Premium Dashboard</h1>", unsafe_allow_html=True)
-st.caption("Professional Trading Infrastructure | High-Density Matrix View & Telebot Core Sesi 8 ⚡")
+st.caption("Professional Trading Infrastructure | High-Density Matrix View & Smart Ledger Sesi 8 ⚡")
 
 # Panel Navigasi Elemen Visual Utama di Sidebar
 st.sidebar.markdown("### 🧭 MENU UTAMA WEBSITE")
@@ -44,12 +45,48 @@ st.sidebar.markdown("### 🎛️ DATA LATENCY CONFIG")
 refresh_rate = st.sidebar.slider("Jeda Refresh Live (Detik - Proteksi CPU)", 5, 30, 10, 1)
 auto_refresh = st.sidebar.checkbox("Auto Refresh Live Active", value=True)
 
-st.success("🔥 VISUAL SHIELD ONLINE: Tata Letak Tabel Grid & Struktur Telebot Baru Siap Diuji")
 # ==========================================
-# 3. UNIVERSE CONSTITUENTS (LQ45, IDX30, KOMPAS100)
+# 3. WIN-RATE LEDGER AUTOMATION
+# ==========================================
+LEDGER_FILE = "ai_win_rate_ledger.json"
+
+def load_ledger():
+    if os.path.exists(LEDGER_FILE):
+        try:
+            with open(LEDGER_FILE, 'r') as f:
+                return json.load(f)
+        except Exception: pass
+    return {
+        "total_signals": 0,
+        "buy_signals_count": 0,
+        "sell_signals_count": 0,
+        "last_signal_ticker": "-",
+        "last_signal_time": "-",
+        "weights": {"fundamental": 0.20, "teknikal": 0.35, "news_rumor": 0.15, "bandarmologi": 0.30}
+    }
+
+def update_ledger_log(signal_type, ticker_code):
+    current_data = load_ledger()
+    current_data["total_signals"] += 1
+    current_data["last_signal_ticker"] = ticker_code
+    current_data["last_signal_time"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    
+    if signal_type == "BUY":
+        current_data["buy_signals_count"] += 1
+    elif signal_type == "SELL":
+        current_data["sell_signals_count"] += 1
+        
+    try:
+        with open(LEDGER_FILE, 'w') as f:
+            json.dump(current_data, f, indent=4)
+    except Exception: pass
+
+ledger = load_ledger()
+st.sidebar.success(f"📊 LEDGER ACTIVE: Total Sinyal Terkirim ({ledger['total_signals']})")
+# ==========================================
+# 4. UNIVERSE CONSTITUENTS (LQ45, IDX30, KOMPAS100)
 # ==========================================
 def get_combined_idx_universe():
-    """Mengunci daftar emiten gabungan indeks papan atas BEI sebagai jangkar scan."""
     lq45 = ["ACES", "ADRO", "AKRA", "AMMN", "AMRT", "ANTM", "ARTO", "ASII", "BBCA", "BBNI", 
             "BBRI", "BBTN", "BMRI", "BRIS", "BRPT", "BSDE", "CPIN", "CTRA", "EXCL", "GOTO", 
             "INKP", "INTP", "ISAT", "ITMG", "JSMR", "KLBF", "MAPI", "MBMA", "MDKA", "MEDC", 
@@ -64,10 +101,9 @@ def get_combined_idx_universe():
     return sorted(list(set(lq45 + idx30 + kompas100)))
 
 # ==========================================
-# 4. ENGINE KOMUNIKASI DATA PASAR (ANTI-THROTTLE)
+# 5. ENGINE KOMUNIKASI DATA PASAR (ANTI-THROTTLE)
 # ==========================================
 def fetch_live_bursa_stream(symbols_list):
-    """Menembak klaster data market dengan proteksi bypass pencegah banned IP server bursa."""
     query_symbols = ",".join([f"{sym}.JK" for sym in symbols_list])
     rounded_timestamp = (int(time.time()) // 10) * 10
     url = f"https://yahoo.com{query_symbols}&_={rounded_timestamp}"
@@ -78,8 +114,7 @@ def fetch_live_bursa_stream(symbols_list):
         response = requests.get(url, headers=headers, timeout=7)
         if response.status_code == 200:
             return response.json().get("quoteResponse", {}).get("result", [])
-    except Exception:
-        pass
+    except Exception: pass
     return []
 def process_core_screener_data():
     universe = get_combined_idx_universe()
@@ -96,27 +131,20 @@ def process_core_screener_data():
             price_close = float(row.get("regularMarketPreviousClose", 0))
             if price_live == 0 or price_close == 0: continue
             
-            # Kalkulasi Selisih Harga Nominal & Persentase Intraday (+ / -)
             net_diff = price_live - price_close
             change_pct = float(row.get("regularMarketChangePercent", 0))
             
-            # Volume Saham dalam satuan Lot (1 Lot = 100 Lembar)
             total_volume_shares = float(row.get("regularMarketVolume", 0))
             volume_lot = total_volume_shares / 100
-            
-            # FITUR BARU: MENGAMBIL NILAI KAPITALISASI PASAR (MARKET CAP) NYATA DARI BURSA
             market_cap_riil = float(row.get("marketCap", price_live * total_volume_shares * 10))
             
-            # DETERMINASI FREKUENSI TRANSAKSI RIIL (MATCHING ACCOUNTING)
             np.random.seed(int(price_live) + int(volume_lot) % 1000)
             avg_lot_size = np.random.randint(12, 38) 
             freq_riil = int(volume_lot / avg_lot_size) if volume_lot > 0 else 0
             
-            # Rumus Resmi Indeks Individual BEI
             indeks_individual = (price_live / price_close) * 100
             turnover_rupiah = price_live * total_volume_shares
             
-            # Menghitung Volatilitas Intraday Berbasis Rentang Pergerakan Batas Hari Ini
             day_high = float(row.get("regularMarketDayHigh", price_live))
             day_low = float(row.get("regularMarketDayLow", price_live))
             volatilitas = ((day_high - day_low) / price_close) * 100 if price_close > 0 else 0
@@ -135,6 +163,9 @@ def process_core_screener_data():
         except Exception: continue
         
     return pd.DataFrame(processed_rows)
+# =====================================================================
+# POIN PENTING FIX: Fungsi dideklarasikan di sini agar terbaca oleh eksekusi bawah
+# =====================================================================
 def build_multiindex_session8_frame(df_linear):
     if df_linear.empty: return pd.DataFrame()
     
@@ -150,14 +181,15 @@ def build_multiindex_session8_frame(df_linear):
             df_multi.loc[0, (t, m)] = row[m]
             
     return df_multi
-# Eksekusi Pemrosesan Jalur Intraday Utama
+# Jalankan Engine Utama Komputasi Data Pasar Riil Sesi 8
 df_linear_base = process_core_screener_data()
 
 if not df_linear_base.empty:
+    # Memanggil fungsi setelah dipastikan terdefinisi di Bagian 4
     df_radar_multi = build_multiindex_session8_frame(df_linear_base)
     
     # ----------------------------------------------------------------=
-    # MENU 1: DAFTAR EMITEN LQ45, KOMPAS100 DAN IDX30 (FORMAT VISUAL BARU)
+    # MENU 1: DAFTAR EMITEN LQ45, KOMPAS100 DAN IDX30
     # ----------------------------------------------------------------=
     if menu_terpilih == "1. DAFTAR EMITEN LQ45, KOMPAS100, IDX30":
         st.markdown("<h3 style='color: #2563EB;'>📋 Menu 1: Monitor Semesta Saham Top Indeks BEI</h3>", unsafe_allow_html=True)
@@ -173,11 +205,10 @@ if not df_linear_base.empty:
                 "Volume": f"{row['Volume_Lot']:,.0f} Lot", "Volatilitas": f"{row['Volatilitas']:.2f}%", 
                 "Market Cap": f"Rp {row['Market_Cap'] / 1e12:.2f} T", "Bandarmology": row["Bandarmology"]
             })
-        # Menggunakan st.dataframe dengan visualisasi grid interaktif agar sedap dipandang mata
         st.dataframe(pd.DataFrame(report_list), use_container_width=True, hide_index=True)
         
     # ----------------------------------------------------------------=
-    # MENU 2: DAFTAR 20 EMITEN LOLOS PENYARINGAN (TOP FILTERING DISPLAY)
+    # MENU 2: DAFTAR 20 EMITEN LOLOS PENYARINGAN
     # ----------------------------------------------------------------=
     elif menu_terpilih == "2. DAFTAR 20 EMITEN LOLOS PENYARINGAN":
         st.markdown("<h3 style='color: #D97706;'>🔥 Menu 2: Top 20 Emiten Hasil Penyaringan Likuiditas</h3>", unsafe_allow_html=True)
@@ -206,22 +237,17 @@ if not df_linear_base.empty:
     top_2_volume_tickers = df_sort_volume["Ticker"].head(2).tolist()
 
     # ----------------------------------------------------------------=
-    # MENU 3: DAFTAR EMITEN REKOMENDASI BUY (DEEP TELEBOT ANALYTICS)
+    # MENU 3: DAFTAR EMITEN REKOMENDASI BUY
     # ----------------------------------------------------------------=
     if menu_terpilih == "3. DAFTAR EMITEN REKOMENDASI BUY":
         st.markdown("<h3 style='color: #10B981;'>🟢 Menu 3: Sinyal Beli Masuk Watchlist (Trigger Telebot)</h3>", unsafe_allow_html=True)
         buy_list = []
         for idx, row in df_linear_base.iterrows():
             t = row["Ticker"]
-            cond_a = t in top_20_freq_tickers          
-            cond_b = t in top_volatilitas_tickers      
-            cond_c = -5.0 <= row["Change_Pct"] <= -3.0 
-            cond_d = t in top_2_volume_tickers         
-            
-            if cond_a and cond_b and cond_c and cond_d:
+            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (-5.0 <= row["Change_Pct"] <= -3.0) and (t in top_2_volume_tickers):
                 buy_list.append(row)
-                sign = "" if row["Net_Diff"] > 0 else ""
-                # PERANCANGAN ISI PESAN BOT TELEGRAM PREMIUM UNTUK BUY (SESUAI PERMINTAAN ANDA)
+                update_ledger_log("BUY", t)
+                
                 alert_msg = (
                     f"🟢 *AI TRADING RADAR: SIGNAL BUY VALID* 🟢\n"
                     f"─────────────────────────\n"
@@ -243,22 +269,18 @@ if not df_linear_base.empty:
         else: st.info("Memindai running trade... Belum ada emiten yang memenuhi akumulasi kriteria Buy (-3% s/d -5%) detik ini.")
 
     # ----------------------------------------------------------------=
-    # MENU 4: DAFTAR EMITEN REKOMENDASI SELL (DEEP TELEBOT ANALYTICS)
+    # MENU 4: DAFTAR EMITEN REKOMENDASI SELL
     # ----------------------------------------------------------------=
     elif menu_terpilih == "4. DAFTAR EMITEN REKOMENDASI SELL":
         st.markdown("<h3 style='color: #EF4444;'>🔴 Menu 4: Sinyal Jual Ambil Profit (Trigger Telebot)</h3>", unsafe_allow_html=True)
         sell_list = []
         for idx, row in df_linear_base.iterrows():
             t = row["Ticker"]
-            cond_a = t in top_20_freq_tickers         
-            cond_b = t in top_volatilitas_tickers     
-            cond_c = 3.0 <= row["Change_Pct"] <= 5.0  
-            cond_d = t in top_2_volume_tickers        
-            
-            if cond_a and cond_b and cond_c and cond_d:
+            if (t in top_20_freq_tickers) and (t in top_volatilitas_tickers) and (3.0 <= row["Change_Pct"] <= 5.0) and (t in top_2_volume_tickers):
                 sell_list.append(row)
+                update_ledger_log("SELL", t)
+                
                 sign = "+" if row["Net_Diff"] > 0 else ""
-                # PERANCANGAN ISI PESAN BOT TELEGRAM PREMIUM UNTUK SELL (ASLI BURSA)
                 alert_msg = (
                     f"🔴 *AI TRADING RADAR: SIGNAL SELL VALID* 🔴\n"
                     f"─────────────────────────\n"
