@@ -35,9 +35,9 @@ menu_terpilih = st.sidebar.radio(
     "Pilih Tampilan Menu:",
     [
         "1. DAFTAR EMITEN LQ45, KOMPAS100, IDX30",
-        "2. DAFTAR 20 EMITEN LOLOS PENYARINGAN",
-        "3. DAFTAR EMITEN REKOMENDASI BUY",
-        "4. DAFTAR EMITEN REKOMENDASI SELL"
+        "2. 20 EMITEN LOLOS PENYARINGAN",
+        "3. EMITEN REKOMENDASI BUY",
+        "4. EMITEN REKOMENDASI SELL"
     ]
 )
 
@@ -209,7 +209,7 @@ if not df_linear_base.empty:
         st.dataframe(pd.DataFrame(report_list), use_container_width=True, hide_index=True)
         
     # ----------------------------------------------------------------=
-    # MENU 2: DAFTAR 20 EMITEN LOLOS PENYARINGAN
+    # MENU 2: 20 EMITEN LOLOS PENYARINGAN
     # ----------------------------------------------------------------=
     elif menu_terpilih == "2. DAFTAR 20 EMITEN LOLOS PENYARINGAN":
         st.markdown("<h3 style='color: #D97706;'>🔥 Menu 2: Top 20 Emiten Hasil Penyaringan Likuiditas</h3>", unsafe_allow_html=True)
@@ -237,7 +237,7 @@ if not df_linear_base.empty:
     top_2_volume_tickers = df_sort_volume["Ticker"].head(2).tolist()
 
     # ----------------------------------------------------------------=
-    # MENU 3: DAFTAR EMITEN REKOMENDASI BUY
+    # MENU 3: EMITEN REKOMENDASI BUY
     # ----------------------------------------------------------------=
     if menu_terpilih == "3. DAFTAR EMITEN REKOMENDASI BUY":
         st.markdown("<h3 style='color: #10B981;'>🟢 Menu 3: Sinyal Beli Masuk Watchlist (Trigger Telebot)</h3>", unsafe_allow_html=True)
@@ -269,7 +269,7 @@ if not df_linear_base.empty:
         else: st.info("Memindai running trade... Belum ada emiten yang memenuhi akumulasi kriteria Buy (-1% s/d -5%) detik ini.")
 
     # ----------------------------------------------------------------=
-    # MENU 4: DAFTAR EMITEN REKOMENDASI SELL
+    # MENU 4: EMITEN REKOMENDASI SELL
     # ----------------------------------------------------------------=
     elif menu_terpilih == "4. DAFTAR EMITEN REKOMENDASI SELL":
         st.markdown("<h3 style='color: #EF4444;'>🔴 Menu 4: Sinyal Jual Ambil Profit (Trigger Telebot)</h3>", unsafe_allow_html=True)
