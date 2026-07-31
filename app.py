@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.markdown("<h1 style='text-align: left; color: #1E3A8A;'>🤖 AI Scalper Pro — Local Engine Sesi 8</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: left; color: #1E3A8A;'>🤖 YENNER AI Scalper Pro — Local Engine Sesi 8</h1>", unsafe_allow_html=True)
 st.caption("Professional Trading Infrastructure | 100% Pure Unaltered Market Data Feed ⚡")
 
 # Panel Navigasi Elemen Visual Utama di Sidebar
