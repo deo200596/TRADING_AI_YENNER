@@ -82,7 +82,6 @@ def fetch_idx_realtime_summary():
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             json_data = response.json()
-            # Struktur default kembalian API IDX dibungkus dalam key 'data' atau 'results'
             raw_data = json_data.get("data", json_data.get("results", json_data))
             if isinstance(raw_data, list) and len(raw_data) > 0:
                 return raw_data
@@ -90,7 +89,6 @@ def fetch_idx_realtime_summary():
         pass
     
     # Fallback Data Generator Berbasis Parameter Riil Jika API Mengalami Rate Limit / Sesi Libur
-    # Memastikan Streamlit Cloud RAM 4GB tidak crash saat pasar tutup
     return generate_idx_fallback_data()
 def generate_idx_fallback_data():
     """Fallback Engine bermekanisme bursa riil jika koneksi backend data bursa intermiten."""
@@ -98,12 +96,11 @@ def generate_idx_fallback_data():
     mock_list = []
     for idx, t in enumerate(tickers):
         np.random.seed(idx + int(time.time()) % 100)
-        # Menghasilkan harga, perubahan %, volume riil, dan frekuensi transaksi match riil
         prev_close = float(np.random.randint(50, 10000))
-        change_pct = float(np.random.uniform(-5.0, 6.0)) # Simulasi pergerakan naik turun harian
+        change_pct = float(np.random.uniform(-5.0, 6.0))
         current_price = prev_close * (1 + change_pct/100)
         volume_lembar = int(np.random.randint(50000, 200000000))
-        freq_riil = int(np.random.randint(500, 25000)) # Angka frekuensi match riil, bukan hasil tebakan volume
+        freq_riil = int(np.random.randint(500, 25000))
         value_rupiah = current_price * volume_lembar
         
         mock_list.append({
@@ -121,23 +118,18 @@ def process_and_filter_idx_universe():
     
     for row in raw_idx_rows:
         try:
-            # Standarisasi pemetaan variabel bursa berdasarkan respon API key resmi IDX
             ticker = row.get("StockCode", row.get("Ticker", row.get("code", "")))
-            if not ticker or len(ticker) > 5: continue # Menyaring instrumen non-saham biasa
+            if not ticker or len(ticker) > 5: continue
             
             price_live = float(row.get("Close", row.get("LastPrice", row.get("close", 0))))
             prev_close = float(row.get("PrevClose", row.get("prev", 0)))
             price_change_pct = float(row.get("Change", row.get("ChangeRatio", row.get("percentage", 0))))
             
-            # Pengambilan METRIK RIIL BURSA (Bukan tebakan matematis)
             total_volume_shares = float(row.get("Volume", row.get("Vol", 0)))
             freq_riil = int(row.get("Frequency", row.get("Freq", 0)))
             turnover_rupiah = float(row.get("Value", row.get("Turnover", 0)))
             
-            # Jika API mengembalikan value nol, hitung manual secara logis
             if turnover_rupiah == 0: turnover_rupiah = price_live * total_volume_shares
-            
-            # Saringan Likuiditas Keras (Parameter Minimum Turnover Rupiah Miliar)
             if turnover_rupiah < min_turnover_bytes: continue
             
             filtered_list.append({
@@ -163,12 +155,9 @@ def build_multiindex_screener_frame():
             freq_riil = item["Freq_Riil"]
             turnover_rupiah = item["Turnover_Rp"]
             
-            # Perhitungan Ketebalan Rata-rata Lot Per Transaksi Riil (Mendeteksi Haka Institusi)
             volume_lot = last_volume_shares / 100
             avg_lot_per_trade = volume_lot / (freq_riil + 1e-5)
             
-            # PERBAIKAN INDEKS INDIVIDUAL: Rumus Keterbukaan Informasi IDX Resmi (Live Price / Base Price * 100)
-            # Karena basis data harian, prev_close_price dikunci sebagai pondasi awal harga acuan dasar
             indeks_individual = (current_live_price / (prev_close_price + 1e-5)) * 100
             
             rumor_txt, rumor_score = scan_news_and_rumors_sentiment(t)
@@ -198,7 +187,8 @@ def build_multiindex_screener_frame():
     sub_metrics = ["Price", "Change_%", "Freq", "Avg_Lot_Trade", "Idx_Individual", "AI_Score", "Turnover"]
     
     multi_cols = pd.MultiIndex.from_product([tickers_found, sub_metrics], names=["Ticker", "Metric"])
-    df_multi = pd.DataFrame(columns=multi_cols, index=)
+    # PERBAIKAN: Mengunci parameter index ke baris ke-0 agar struktur tabel valid
+    df_multi = pd.DataFrame(columns=multi_cols, index=[0])
     
     for item in data_list:
         ticker_code = item["Ticker"]
@@ -213,8 +203,8 @@ if not df_radar.empty:
     # 1. AMBIL URUTAN TOP FREQUENCY DARI API RESMI IDX
     tickers_extracted = list(df_radar.columns.get_level_values(0).unique())
     freq_map = {t: float(df_radar.loc[0, (t, "Freq")]) for t in tickers_extracted}
-    sorted_freq = sorted(freq_map.items(), key=lambda x: x, reverse=True)
-    top_freq_rank = {item: rank + 1 for rank, item in enumerate(sorted_freq)}
+    sorted_freq = sorted(freq_map.items(), key=lambda x: x[1], reverse=True)
+    top_freq_rank = {item[0]: rank + 1 for rank, item in enumerate(sorted_freq)}
     
     final_report = []
     
@@ -226,16 +216,13 @@ if not df_radar.empty:
         turnover_rp = float(df_radar.loc[0, (t, "Turnover")])
         rank_f = top_freq_rank[t]
         
-        # Penyetelan Kondisi Sesuai Indikator Akurasi Skenario Pasar:
         is_high_freq = (rank_f <= 20) or (freq_map[t] >= freq_alert_threshold)
-        is_big_money = avg_lot >= 15.0 # Memastikan transaksi tebal / akumulasi bandar riil
+        is_big_money = avg_lot >= 15.0
         
-        # INTEGRASI STRATEGI BARU: MENCARI PROFIT DARI REBOUND BAWAH & CLIMAX ATAS
+        # INTEGRASI STRATEGI: MENCARI PROFIT DARI REBOUND BAWAH & CLIMAX ATAS
         if is_high_freq and is_big_money and (c_pct < 0):
-            # Kondisi A: Frekuensi Tinggi, Volume/Turnover Besar, Harga TURUN = PANIC SELLING YANG DITAMPUNG (SIAP CUAN)
             decision = "TRIGGER BUY (REBOUND POTENTIAL)"
         elif is_high_freq and (3.0 <= c_pct <= 5.0):
-            # Kondisi B: Frekuensi Tinggi, Harga Melonjak Naik +3% s/d +5% dari penutupan kemarin = BUYING CLIMAX (SAATNYA JUAL)
             decision = "TRIGGER SELL (CLIMAX TAKE PROFIT)"
         elif c_pct > 0:
             decision = "HOLD / WATCHLIST"
